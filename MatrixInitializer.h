@@ -1,6 +1,7 @@
 #ifndef FROZENCA_MATRIXINITIALIZER_H
 #define FROZENCA_MATRIXINITIALIZER_H
 
+#include <cstddef>
 #include <concepts>
 #include <initializer_list>
 

@@ -1,8 +1,6 @@
 #ifndef FROZENCA_OBJECTBASE_H
 #define FROZENCA_OBJECTBASE_H
 
-#include <cstddef>
-#include <concepts>
 #include <functional>
 #include <utility>
 #include "MatrixUtils.h"

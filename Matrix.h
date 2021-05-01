@@ -1,9 +1,6 @@
 #ifndef FROZENCA_MATRIX_H
 #define FROZENCA_MATRIX_H
 
-#include <array>
-#include <iterator>
-#include <memory>
 #include "MatrixBase.h"
 #include "MatrixView.h"
 

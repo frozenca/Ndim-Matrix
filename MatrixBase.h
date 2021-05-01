@@ -2,13 +2,9 @@
 #define FROZENCA_MATRIXBASE_H
 
 #include <algorithm>
-#include <array>
 #include <cassert>
-#include <initializer_list>
-#include <iostream>
 #include <numeric>
 #include <stdexcept>
-#include <type_traits>
 #include "ObjectBase.h"
 #include "MatrixInitializer.h"
 
