@@ -185,7 +185,7 @@ template <IndexType... Args>
 typename MatrixBase<Derived, T, N>::const_reference MatrixBase<Derived, T, N>::operator()(Args... args) const {
     static_assert(sizeof...(args) == N);
     std::array<std::size_t, N> pos {std::size_t(args)...};
-    return this->operator[](pos);
+    return operator[](pos);
 }
 
 template <typename Derived, std::semiregular T, std::size_t N>
@@ -226,7 +226,7 @@ MatrixView<T, N> MatrixBase<Derived, T, N>::submatrix(const std::array<std::size
     std::array<std::size_t, N> view_dims;
     std::transform(std::cbegin(pos_end), std::cend(pos_end), std::cbegin(pos_begin), std::begin(view_dims),
                    std::minus<>{});
-    MatrixView<T, N> view(view_dims, const_cast<T*>(&this->operator[](pos_begin)), strides());
+    MatrixView<T, N> view(view_dims, const_cast<T*>(&operator[](pos_begin)), strides());
     return view;
 }
 
@@ -254,7 +254,7 @@ MatrixView<T, N - 1> MatrixBase<Derived, T, N>::row(std::size_t n) const {
     }
 
     std::copy(std::cbegin(orig_strides) + 1, std::cend(orig_strides), std::begin(row_strides));
-    MatrixView<T, N - 1> nth_row(row_dims, const_cast<T*>(&this->operator[](pos_begin)), row_strides);
+    MatrixView<T, N - 1> nth_row(row_dims, const_cast<T*>(&operator[](pos_begin)), row_strides);
     return nth_row;
 }
 
@@ -283,7 +283,7 @@ MatrixView<T, N - 1> MatrixBase<Derived, T, N>::col(std::size_t n) const {
     }
 
     std::copy(std::cbegin(orig_strides), std::cend(orig_strides) - 1, std::begin(col_strides));
-    MatrixView<T, N - 1> nth_col(col_dims, const_cast<T*>(&this->operator[](pos_begin)), col_strides);
+    MatrixView<T, N - 1> nth_col(col_dims, const_cast<T*>(&operator[](pos_begin)), col_strides);
     return nth_col;
 }
 
@@ -295,7 +295,6 @@ public:
 
 private:
     std::size_t dims_;
-    std::size_t size_;
     std::size_t strides_;
 
     Derived& self() { return static_cast<Derived&>(*this); }
@@ -308,7 +307,7 @@ protected:
     virtual ~MatrixBase() = default;
 
     template <typename Dim> requires std::is_integral_v<Dim>
-    explicit MatrixBase(Dim dim) : dims_(dim), size_(dim), strides_(1) {};
+    explicit MatrixBase(Dim dim) : dims_(dim), strides_(1) {};
 
     template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
     MatrixBase(const MatrixBase<DerivedOther, U, 1>&);
@@ -316,12 +315,6 @@ protected:
     MatrixBase(typename MatrixInitializer<T, 1>::type init);
 
 public:
-    template <typename U>
-    MatrixBase(std::initializer_list<U>) = delete;
-
-    template <typename U>
-    MatrixBase& operator=(std::initializer_list<U>) = delete;
-
     using value_type = T;
     using reference = T&;
     using const_reference = const T&;
@@ -353,8 +346,6 @@ public:
         return operator[](dim);
     }
 
-    [[nodiscard]] std::size_t size() const { return size_;}
-
     [[nodiscard]] std::size_t dims() const {
         return dims_;
     }
@@ -371,14 +362,14 @@ public:
         return self().origStrides();
     }
 
-    T& submatrix(const std::array<std::size_t, 1>& pos_begin);
-    T& submatrix(const std::array<std::size_t, 1>& pos_begin, const std::array<std::size_t, 1>& pos_end);
+    MatrixView<T, 1> submatrix(std::size_t pos_begin);
+    MatrixView<T, 1> submatrix(std::size_t pos_begin, std::size_t pos_end);
     T& row(std::size_t n);
     T& col(std::size_t n);
     T& operator[](std::size_t n) { return *(begin() + n); }
 
-    const T& submatrix(const std::array<std::size_t, 1>& pos_begin) const;
-    const T& submatrix(const std::array<std::size_t, 1>& pos_begin, const std::array<std::size_t, 1>& pos_end) const;
+    MatrixView<T, 1> submatrix(std::size_t pos_begin) const;
+    MatrixView<T, 1> submatrix(std::size_t pos_begin, std::size_t pos_end) const;
     const T& row(std::size_t n) const;
     const T& col(std::size_t n) const;
     const T& operator[](std::size_t n) const { return *(cbegin() + n); }
@@ -396,28 +387,32 @@ public:
 };
 
 template <typename Derived, std::semiregular T>
-T& MatrixBase<Derived, T, 1>::submatrix(const std::array<std::size_t, 1>& pos_begin) {
+MatrixBase<Derived, T, 1>::MatrixBase(typename MatrixInitializer<T, 1>::type init) : MatrixBase(deriveDims<1>(init)[0]) {
+}
+
+template <typename Derived, std::semiregular T>
+MatrixView<T, 1> MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin) {
     return submatrix(pos_begin, dims_);
 }
 
 template <typename Derived, std::semiregular T>
-const T& MatrixBase<Derived, T, 1>::submatrix(const std::array<std::size_t, 1>& pos_begin) const {
+MatrixView<T, 1> MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin) const {
     return submatrix(pos_begin, dims_);
 }
 
 template <typename Derived, std::semiregular T>
-T& MatrixBase<Derived, T, 1>::submatrix(const std::array<std::size_t, 1>& pos_begin,
-                                        const std::array<std::size_t, 1>& pos_end) {
-    return const_cast<T&>(std::as_const(*this).submatrix(pos_begin, pos_end));
+MatrixView<T, 1> MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin,
+                                        std::size_t pos_end) {
+    return std::as_const(*this).submatrix(pos_begin, pos_end);
 }
 
 template <typename Derived, std::semiregular T>
-const T& MatrixBase<Derived, T, 1>::submatrix(const std::array<std::size_t, 1>& pos_begin,
-                                        const std::array<std::size_t, 1>& pos_end) const {
-    if (pos_begin[0] >= pos_end[0]) {
+MatrixView<T, 1> MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin,
+                                              std::size_t pos_end) const {
+    if (pos_begin >= pos_end) {
         throw std::out_of_range("submatrix begin/end position error");
     }
-    const T& view = this->operator[](pos_begin);
+    MatrixView<T, 1> view ({pos_end - pos_begin}, const_cast<T*>(&operator[](pos_begin)), {strides_});
     return view;
 }
 
@@ -431,8 +426,8 @@ const T& MatrixBase<Derived, T, 1>::row(std::size_t n) const {
     if (n >= dims_) {
         throw std::out_of_range("row index error");
     }
-    const T& view = this->operator[](n);
-    return view;
+    const T& val = operator[](n);
+    return val;
 }
 
 template <typename Derived, std::semiregular T>

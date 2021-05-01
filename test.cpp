@@ -28,4 +28,17 @@ int main() {
     auto sub5 = sub.col(1);
     std::cout << sub5 << '\n';
 
+    frozenca::Matrix<int, 1> m3 {1, 2, 3, 4, 5, 6};
+    std::cout << m3 << '\n';
+
+    auto sub6 = m3.submatrix(2, 4);
+    std::cout << sub6 << '\n';
+
+    auto sub7 = m3[5];
+    std::cout << sub7 << '\n';
+
+    auto sub8 = m3.col(5);
+    std::cout << sub8 << '\n';
+
+
 }

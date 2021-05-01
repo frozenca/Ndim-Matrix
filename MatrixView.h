@@ -267,7 +267,6 @@ private:
 
 public:
     using Base = MatrixBase<MatrixView<T, 1>, T, 1>;
-    using Base::size;
     using Base::dims;
     using Base::strides;
 
@@ -318,7 +317,7 @@ public:
         void ValidateOffset() {
             offset_ = pos_ * ptr_->orig_strides_;
             index_ = pos_ * ptr_->strides();
-            if (index_ > ptr_->size()) {
+            if (index_ > ptr_->dims()) {
                 throw std::out_of_range("MatrixView iterator out of range");
             }
         }

@@ -99,7 +99,6 @@ private:
 
 public:
     using Base = MatrixBase<Matrix<T, 1>, T, 1>;
-    using Base::size;
     using Base::dims;
     using Base::strides;
 
@@ -129,8 +128,8 @@ public:
 
     iterator begin() { return &data_[0];}
     const_iterator cbegin() const { return &data_[0]; }
-    iterator end() { return &data_[size()];}
-    const_iterator cend() const { return &data_[size()];}
+    iterator end() { return &data_[dims()];}
+    const_iterator cend() const { return &data_[dims()];}
     reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
     const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
     reverse_iterator rend() { return std::make_reverse_iterator(begin());}
@@ -141,7 +140,7 @@ public:
 
 template <std::semiregular T>
 Matrix<T, 1>::Matrix(typename MatrixInitializer<T, 1>::type init) : Base(init),
-                                                                    data_(std::make_unique<T[]>(size())) {
+                                                                    data_(std::make_unique<T[]>(dims())) {
     insertFlat(data_, init);
 }
 
@@ -155,7 +154,7 @@ Matrix<T, 1>& Matrix<T, 1>::operator=(typename MatrixInitializer<T, 1>::type ini
 template <std::semiregular T>
 template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
 Matrix<T, 1>::Matrix(const MatrixBase<DerivedOther, U, 1>& other) : Base(other),
-                                                                    data_(std::make_unique<T[]>(size())) {
+                                                                    data_(std::make_unique<T[]>(dims())) {
     std::size_t index = 0;
     for (auto it = std::begin(other); it != std::end(other); ++it) {
         data_[index] = static_cast<T>(*it);
