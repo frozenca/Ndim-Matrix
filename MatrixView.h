@@ -210,12 +210,16 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     iterator begin() { return iterator(this);}
+    const_iterator begin() const { return const_iterator(this); }
     const_iterator cbegin() const { return const_iterator(this); }
     iterator end() { return iterator(this, {dims(0), });}
+    const_iterator end() const { return const_iterator(this, {dims(0), });}
     const_iterator cend() const { return const_iterator(this, {dims(0), });}
     reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
+    const_reverse_iterator rbegin() const { return std::make_reverse_iterator(cend());}
     const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
     reverse_iterator rend() { return std::make_reverse_iterator(begin());}
+    const_reverse_iterator rend() const { return std::make_reverse_iterator(cbegin());}
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
 
     [[nodiscard]] T* dataView() const {
@@ -432,12 +436,16 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     iterator begin() { return iterator(this);}
+    const_iterator begin() const { return const_iterator(this); }
     const_iterator cbegin() const { return const_iterator(this); }
     iterator end() { return iterator(this, {dims(), });}
+    const_iterator end() const { return const_iterator(this, {dims(), });}
     const_iterator cend() const { return const_iterator(this, {dims(), });}
     reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
+    const_reverse_iterator rbegin() const { return std::make_reverse_iterator(cend());}
     const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
     reverse_iterator rend() { return std::make_reverse_iterator(begin());}
+    const_reverse_iterator rend() const { return std::make_reverse_iterator(cbegin());}
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
 
     [[nodiscard]] T* dataView() const {

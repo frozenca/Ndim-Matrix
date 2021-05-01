@@ -49,5 +49,15 @@ int main() {
     m += 2.7;
     std::cout << m << '\n';
 
+    auto m4 = frozenca::zeros<int, 2>({2, 3});
+    std::cout << m4 << '\n';
+
+    std::ranges::fill(m4, 1);
+
+    auto m5 = m4;
+    std::cout << m5 << '\n';
+
+    std::cout << m4 << '\n';
+
 
 }

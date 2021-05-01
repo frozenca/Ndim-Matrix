@@ -18,7 +18,43 @@ public:
     using Base::strides;
     using Base::applyFunction;
 
+    using iterator = T*;
+    using const_iterator = const T*;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    iterator begin() { return &data_[0];}
+    const_iterator begin() const { return &data_[0]; }
+    const_iterator cbegin() const { return &data_[0]; }
+    iterator end() { return &data_[size()];}
+    const_iterator end() const { return &data_[size()]; }
+    const_iterator cend() const { return &data_[size()];}
+    reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
+    const_reverse_iterator rbegin() const { return std::make_reverse_iterator(end()); }
+    const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
+    reverse_iterator rend() { return std::make_reverse_iterator(begin());}
+    const_reverse_iterator rend() const { return std::make_reverse_iterator(begin()); }
+    const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
+
     ~Matrix() override = default;
+    Matrix(const Matrix& other) : Base(other.dims()), data_(std::make_unique<T[]>(size())) {
+        std::size_t index = 0;
+        for (auto it = std::cbegin(other); it != std::cend(other); ++it) {
+            data_[index] = static_cast<T>(*it);
+            index++;
+        }
+    }
+
+    Matrix& operator=(const Matrix& other) {
+        Matrix mat(other);
+        swap(*this, mat);
+        return *this;
+    }
+
+    Matrix(Matrix&& other) noexcept = default;
+    Matrix& operator=(Matrix&& other) noexcept = default;
+
+    Matrix(const std::array<std::size_t, N>& dims);
 
     template <typename... Dims>
     explicit Matrix(Dims... dims);
@@ -37,24 +73,14 @@ public:
         std::swap(a.data_, b.data_);
     }
 
-    using iterator = T*;
-    using const_iterator = const T*;
-    using reverse_iterator = std::reverse_iterator<iterator>;
-    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-
-    iterator begin() { return &data_[0];}
-    const_iterator cbegin() const { return &data_[0]; }
-    iterator end() { return &data_[size()];}
-    const_iterator cend() const { return &data_[size()];}
-    reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
-    const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
-    reverse_iterator rend() { return std::make_reverse_iterator(begin());}
-    const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
-
     template <std::semiregular U> requires std::is_convertible_v<U, T>
     Matrix& operator=(const U& val);
 
 };
+
+template <std::semiregular T, std::size_t N>
+Matrix<T, N>::Matrix(const std::array<std::size_t, N>& dims) : Base(dims), data_(std::make_unique<T[]>(size())) {
+}
 
 template <std::semiregular T, std::size_t N>
 template <typename... Dims>
@@ -79,11 +105,12 @@ template <typename DerivedOther, std::semiregular U> requires std::is_convertibl
 Matrix<T, N>::Matrix(const MatrixBase<DerivedOther, U, N>& other) : Base(other),
     data_(std::make_unique<T[]>(size())) {
     std::size_t index = 0;
-    for (auto it = std::begin(other); it != std::end(other); ++it) {
+    for (auto it = std::cbegin(other); it != std::cend(other); ++it) {
         data_[index] = static_cast<T>(*it);
         index++;
     }
 }
+
 template <std::semiregular T, std::size_t N>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 Matrix<T, N>& Matrix<T, N>::operator=(const MatrixBase<DerivedOther, U, N>& other) {
@@ -110,20 +137,6 @@ public:
     using Base::strides;
     using Base::applyFunction;
 
-    ~Matrix() override = default;
-
-    template <typename Dim> requires std::is_integral_v<Dim>
-    explicit Matrix(Dim dim) : Base(dim), data_(std::make_unique<T[]>(dim)) {};
-
-    explicit Matrix(typename MatrixInitializer<T, 1>::type init);
-    Matrix& operator=(typename MatrixInitializer<T, 1>::type init);
-
-    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-    explicit Matrix(const MatrixBase<DerivedOther, U, 1>& other);
-
-    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-    Matrix& operator=(const MatrixBase<DerivedOther, U, 1>& other);
-
     friend void swap(Matrix& a, Matrix& b) noexcept {
         swap(static_cast<Base&>(a), static_cast<Base&>(b));
         std::swap(a.data_, b.data_);
@@ -135,13 +148,49 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     iterator begin() { return &data_[0];}
+    const_iterator begin() const { return &data_[0]; }
     const_iterator cbegin() const { return &data_[0]; }
     iterator end() { return &data_[dims()];}
+    const_iterator end() const { return &data_[dims()]; }
     const_iterator cend() const { return &data_[dims()];}
     reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
+    const_reverse_iterator rbegin() const { return std::make_reverse_iterator(end()); }
     const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
     reverse_iterator rend() { return std::make_reverse_iterator(begin());}
+    const_reverse_iterator rend() const { return std::make_reverse_iterator(begin()); }
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
+
+    ~Matrix() override = default;
+    Matrix(const Matrix& other) : Base(other.dims()), data_(std::make_unique<T[]>(dims())) {
+        std::size_t index = 0;
+        for (auto it = std::cbegin(other); it != std::cend(other); ++it) {
+            data_[index] = static_cast<T>(*it);
+            index++;
+        }
+    }
+
+    Matrix& operator=(const Matrix& other) {
+        Matrix mat(other);
+        swap(*this, mat);
+        return *this;
+    }
+
+    Matrix(Matrix&& other) noexcept = default;
+    Matrix& operator=(Matrix&& other) noexcept = default;
+
+    Matrix(const std::array<std::size_t, 1>& dims) : Base(dims[0]), data_(std::make_unique<T[]>(dims[0])) {}
+
+    template <typename Dim> requires std::is_integral_v<Dim>
+    explicit Matrix(Dim dim) : Base(dim), data_(std::make_unique<T[]>(dim)) {}
+
+    explicit Matrix(typename MatrixInitializer<T, 1>::type init);
+    Matrix& operator=(typename MatrixInitializer<T, 1>::type init);
+
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
+    explicit Matrix(const MatrixBase<DerivedOther, U, 1>& other);
+
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
+    Matrix& operator=(const MatrixBase<DerivedOther, U, 1>& other);
 
     template <std::semiregular U> requires std::is_convertible_v<U, T>
     Matrix& operator=(const U& val);
@@ -179,6 +228,16 @@ Matrix<T, 1>& Matrix<T, 1>::operator=(const MatrixBase<DerivedOther, U, 1>& othe
     Matrix<T, 1> mat(other);
     swap(*this, mat);
     return *this;
+}
+
+
+// Matrix constructs
+
+template <std::semiregular T, std::size_t N>
+Matrix<T, N> zeros(const std::array<std::size_t, N>& arr) {
+    Matrix<T, N> mat (arr);
+    std::ranges::fill(mat, T{0});
+    return mat;
 }
 
 } // namespace frozenca
