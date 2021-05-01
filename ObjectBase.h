@@ -104,6 +104,76 @@ ObjectBase<Derived>& ObjectBase<Derived>::applyFunction(F&& f, Args&&... args) {
     return *this;
 }
 
+template <typename Derived, std::semiregular U> requires Addable<typename Derived::value_type, U>
+ObjectBase<Derived> operator+(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res += val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires Subtractable<typename Derived::value_type, U>
+ObjectBase<Derived> operator-(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res -= val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires Multipliable<typename Derived::value_type, U>
+ObjectBase<Derived> operator*(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res *= val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires Dividable<typename Derived::value_type, U>
+ObjectBase<Derived> operator/(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res /= val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires Dividable<typename Derived::value_type, U>
+ObjectBase<Derived> operator%(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res %= val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires BitMaskable<typename Derived::value_type, U>
+ObjectBase<Derived> operator&(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res &= val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires BitMaskable<typename Derived::value_type, U>
+ObjectBase<Derived> operator^(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res ^= val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires BitMaskable<typename Derived::value_type, U>
+ObjectBase<Derived> operator|(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res |= val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires BitMaskable<typename Derived::value_type, U>
+ObjectBase<Derived> operator<<(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res <<= val;
+    return res;
+}
+
+template <typename Derived, std::semiregular U> requires BitMaskable<typename Derived::value_type, U>
+ObjectBase<Derived> operator>>(const ObjectBase<Derived>& m, const U& val) {
+    ObjectBase<Derived> res = m;
+    res >>= val;
+    return res;
+}
+
 } // namespace frozenca
 
 #endif //FROZENCA_OBJECTBASE_H

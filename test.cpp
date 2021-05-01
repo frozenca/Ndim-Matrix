@@ -40,5 +40,14 @@ int main() {
     auto sub8 = m3.col(5);
     std::cout << sub8 << '\n';
 
+    sub5 = 2;
+    std::cout << sub5 << '\n';
+
+    sub5 += 3;
+    std::cout << sub5 << '\n';
+
+    m += 2.7;
+    std::cout << m << '\n';
+
 
 }
