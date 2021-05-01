@@ -180,33 +180,26 @@ public:
             return *(this + n);
         }
 
-        template <typename T2>
-        std::enable_if_t<std::is_same_v<std::remove_cv_t<T_>, std::remove_cv_t<T2>>, difference_type>
-                operator-(const MVIterator<T2>& other) const {
+        template <typename T2> requires std::is_same_v<std::remove_cv_t<T_>, std::remove_cv_t<T2>>
+        difference_type operator-(const MVIterator<T2>& other) const {
             return offset_ - other.offset_;
         }
 
     };
 
     // oh no.. *why* defining operator<=> doesn't work to automatically define these in gcc?
-    template <typename T1, typename T2>
-    friend std::enable_if_t<std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>,
-            bool>
-    operator==(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
+    template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
+    friend bool operator==(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
         return it1.offset_ == it2.offset_;
     }
 
-    template <typename T1, typename T2>
-    friend std::enable_if_t<std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>,
-            bool>
-    operator!=(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
+    template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
+    friend bool operator!=(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
         return !(it1 == it2);
     }
 
-    template <typename T1, typename T2>
-    friend std::enable_if_t<std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>,
-            std::compare_three_way_result_t<std::size_t, std::size_t>>
-    operator<=>(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
+    template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
+    friend auto operator<=>(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
         return it1.offset_ <=> it2.offset_;
     }
 
@@ -398,33 +391,26 @@ public:
             return *(this + n);
         }
 
-        template <typename T2>
-        std::enable_if_t<std::is_same_v<std::remove_cv_t<T_>, std::remove_cv_t<T2>>, difference_type>
-        operator-(const MVIterator<T2>& other) const {
+        template <typename T2> requires std::is_same_v<std::remove_cv_t<T_>, std::remove_cv_t<T2>>
+        difference_type operator-(const MVIterator<T2>& other) const {
             return offset_ - other.offset_;
         }
 
     };
 
     // oh no.. *why* defining operator<=> doesn't work to automatically define these in gcc?
-    template <typename T1, typename T2>
-    friend std::enable_if_t<std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>,
-            bool>
-    operator==(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
+    template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
+    friend bool operator==(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
         return it1.offset_ == it2.offset_;
     }
 
-    template <typename T1, typename T2>
-    friend std::enable_if_t<std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>,
-            bool>
-    operator!=(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
+    template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
+    friend bool operator!=(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
         return !(it1 == it2);
     }
 
-    template <typename T1, typename T2>
-    friend std::enable_if_t<std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>,
-            std::compare_three_way_result_t<std::size_t, std::size_t>>
-    operator<=>(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
+    template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
+    friend auto operator<=>(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
         return it1.offset_ <=> it2.offset_;
     }
 
