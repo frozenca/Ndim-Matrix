@@ -59,5 +59,8 @@ int main() {
 
     std::cout << m4 << '\n';
 
+    auto m6 = frozenca::ones<double, 3>({2, 3, 3});
+    std::cout << m6 << '\n';
+
 
 }

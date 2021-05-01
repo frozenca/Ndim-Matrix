@@ -240,6 +240,13 @@ Matrix<T, N> zeros(const std::array<std::size_t, N>& arr) {
     return mat;
 }
 
+template <OneExists T, std::size_t N>
+Matrix<T, N> ones(const std::array<std::size_t, N>& arr) {
+    Matrix<T, N> mat (arr);
+    std::ranges::fill(mat, T{1});
+    return mat;
+}
+
 } // namespace frozenca
 
 #endif //FROZENCA_MATRIX_H

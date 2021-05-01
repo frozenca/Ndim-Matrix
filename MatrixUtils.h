@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cassert>
+#include <complex>
 #include <concepts>
 #include <cstddef>
 #include <initializer_list>
@@ -12,6 +13,11 @@
 #include <type_traits>
 
 namespace frozenca {
+
+template <typename T>
+concept OneExists = requires () {
+    { T{1} } -> std::convertible_to<T>;
+};
 
 template <typename A, typename B>
 concept Addable = requires (A a, B b) {
