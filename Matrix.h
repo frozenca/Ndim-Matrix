@@ -19,6 +19,7 @@ public:
     using Base::size;
     using Base::dims;
     using Base::strides;
+    using Base::applyFunction;
 
     ~Matrix() override = default;
 
@@ -28,10 +29,10 @@ public:
     explicit Matrix(typename MatrixInitializer<T, N>::type init);
     Matrix& operator=(typename MatrixInitializer<T, N>::type init);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     explicit Matrix(const MatrixBase<DerivedOther, U, N>& other);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     Matrix& operator=(const MatrixBase<DerivedOther, U, N>& other);
 
     friend void swap(Matrix& a, Matrix& b) noexcept {
@@ -52,6 +53,9 @@ public:
     const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
     reverse_iterator rend() { return std::make_reverse_iterator(begin());}
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
+
+    template <std::semiregular U> requires std::is_convertible_v<U, T>
+    Matrix& operator=(const U& val);
 
 };
 
@@ -74,7 +78,7 @@ Matrix<T, N>& Matrix<T, N>::operator=(typename MatrixInitializer<T, N>::type ini
 }
 
 template <std::semiregular T, std::size_t N>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 Matrix<T, N>::Matrix(const MatrixBase<DerivedOther, U, N>& other) : Base(other),
     data_(std::make_unique<T[]>(size())) {
     std::size_t index = 0;
@@ -83,12 +87,18 @@ Matrix<T, N>::Matrix(const MatrixBase<DerivedOther, U, N>& other) : Base(other),
         index++;
     }
 }
-
 template <std::semiregular T, std::size_t N>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 Matrix<T, N>& Matrix<T, N>::operator=(const MatrixBase<DerivedOther, U, N>& other) {
     Matrix<T, N> mat(other);
     swap(*this, mat);
+    return *this;
+}
+
+template <std::semiregular T, std::size_t N>
+template <std::semiregular U> requires std::is_convertible_v<U, T>
+Matrix<T, N>& Matrix<T, N>::operator=(const U& val) {
+    applyFunction([&val](auto& v) {v = val;});
     return *this;
 }
 
@@ -101,6 +111,7 @@ public:
     using Base = MatrixBase<Matrix<T, 1>, T, 1>;
     using Base::dims;
     using Base::strides;
+    using Base::applyFunction;
 
     ~Matrix() override = default;
 
@@ -110,10 +121,10 @@ public:
     explicit Matrix(typename MatrixInitializer<T, 1>::type init);
     Matrix& operator=(typename MatrixInitializer<T, 1>::type init);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     explicit Matrix(const MatrixBase<DerivedOther, U, 1>& other);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     Matrix& operator=(const MatrixBase<DerivedOther, U, 1>& other);
 
     friend void swap(Matrix& a, Matrix& b) noexcept {
@@ -135,6 +146,9 @@ public:
     reverse_iterator rend() { return std::make_reverse_iterator(begin());}
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
 
+    template <std::semiregular U> requires std::is_convertible_v<U, T>
+    Matrix& operator=(const U& val);
+
 };
 
 
@@ -152,7 +166,7 @@ Matrix<T, 1>& Matrix<T, 1>::operator=(typename MatrixInitializer<T, 1>::type ini
 }
 
 template <std::semiregular T>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 Matrix<T, 1>::Matrix(const MatrixBase<DerivedOther, U, 1>& other) : Base(other),
                                                                     data_(std::make_unique<T[]>(dims())) {
     std::size_t index = 0;
@@ -163,7 +177,7 @@ Matrix<T, 1>::Matrix(const MatrixBase<DerivedOther, U, 1>& other) : Base(other),
 }
 
 template <std::semiregular T>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 Matrix<T, 1>& Matrix<T, 1>::operator=(const MatrixBase<DerivedOther, U, 1>& other) {
     Matrix<T, 1> mat(other);
     swap(*this, mat);

@@ -17,6 +17,7 @@ public:
     using Base::size;
     using Base::dims;
     using Base::strides;
+    using Base::applyFunction;
 
     ~MatrixView() override = default;
 
@@ -24,10 +25,10 @@ public:
                         T* data_view,
                         const std::array<std::size_t, N>& orig_strides);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     explicit MatrixView(const MatrixBase<DerivedOther, U, N>& other);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     MatrixView& operator=(const MatrixBase<DerivedOther, U, N>& other);
 
     friend void swap(MatrixView& a, MatrixView& b) noexcept {
@@ -225,6 +226,9 @@ public:
         return orig_strides_;
     }
 
+    template <std::semiregular U> requires std::is_convertible_v<U, T>
+    MatrixView& operator=(const U& val);
+
 };
 
 template <std::semiregular T, std::size_t N>
@@ -233,7 +237,7 @@ MatrixView<T, N>::MatrixView(const std::array<std::size_t, N>& dims, T* data_vie
     : Base(dims), data_view_ {data_view}, orig_strides_ {orig_strides} {}
 
 template <std::semiregular T, std::size_t N>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, N>::MatrixView(const MatrixBase<DerivedOther, U, N>& other) : Base(other) {
     if constexpr (std::is_same_v<DerivedOther, MatrixView<U, N>>) {
         data_view_ = static_cast<T*>(other.dataView());
@@ -245,10 +249,17 @@ MatrixView<T, N>::MatrixView(const MatrixBase<DerivedOther, U, N>& other) : Base
 }
 
 template <std::semiregular T, std::size_t N>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, N>& MatrixView<T, N>::operator=(const MatrixBase<DerivedOther, U, N>& other) {
     MatrixView<T, N> mat(other);
     swap(*this, mat);
+    return *this;
+}
+
+template <std::semiregular T, std::size_t N>
+template <std::semiregular U> requires std::is_convertible_v<U, T>
+MatrixView<T, N>& MatrixView<T, N>::operator=(const U& val) {
+    applyFunction([&val](auto& v) {v = val;});
     return *this;
 }
 
@@ -262,6 +273,7 @@ public:
     using Base = MatrixBase<MatrixView<T, 1>, T, 1>;
     using Base::dims;
     using Base::strides;
+    using Base::applyFunction;
 
     ~MatrixView() override = default;
 
@@ -269,10 +281,10 @@ public:
                         T* data_view,
                         const std::array<std::size_t, 1>& orig_strides);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     explicit MatrixView(const MatrixBase<DerivedOther, U, 1>& other);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     MatrixView& operator=(const MatrixBase<DerivedOther, U, 1>& other);
 
     friend void swap(MatrixView& a, MatrixView& b) noexcept {
@@ -436,6 +448,9 @@ public:
         return orig_strides_;
     }
 
+    template <std::semiregular U> requires std::is_convertible_v<U, T>
+    MatrixView& operator=(const U& val);
+
 };
 
 template <std::semiregular T>
@@ -444,7 +459,7 @@ MatrixView<T, 1>::MatrixView(const std::array<std::size_t, 1>& dims, T* data_vie
         : Base(dims[0]), data_view_ {data_view}, orig_strides_ {orig_strides[0]} {}
 
 template <std::semiregular T>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, 1>::MatrixView(const MatrixBase<DerivedOther, U, 1>& other) : Base(other) {
     if constexpr (std::is_same_v<DerivedOther, MatrixView<U, 1>>) {
         data_view_ = static_cast<T*>(other.dataView());
@@ -456,10 +471,17 @@ MatrixView<T, 1>::MatrixView(const MatrixBase<DerivedOther, U, 1>& other) : Base
 }
 
 template <std::semiregular T>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, 1>& MatrixView<T, 1>::operator=(const MatrixBase<DerivedOther, U, 1>& other) {
     MatrixView<T, 1> mat(other);
     swap(*this, mat);
+    return *this;
+}
+
+template <std::semiregular T>
+template <std::semiregular U> requires std::is_convertible_v<U, T>
+MatrixView<T, 1>& MatrixView<T, 1>::operator=(const U& val) {
+    applyFunction([&val](auto& v) {v = val;});
     return *this;
 }
 

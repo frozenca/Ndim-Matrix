@@ -4,16 +4,12 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cstddef>
-#include <concepts>
-#include <functional>
 #include <initializer_list>
 #include <iostream>
 #include <numeric>
 #include <stdexcept>
 #include <type_traits>
-#include <utility>
-#include "MatrixUtils.h"
+#include "ObjectBase.h"
 #include "MatrixInitializer.h"
 
 namespace frozenca {
@@ -22,7 +18,7 @@ template <std::semiregular T, std::size_t N>
 class MatrixView;
 
 template <typename Derived, std::semiregular T, std::size_t N>
-class MatrixBase {
+class MatrixBase : public ObjectBase<MatrixBase<Derived, T, N>> {
     static_assert(N > 1);
 public:
     static constexpr std::size_t ndim = N;
@@ -32,13 +28,16 @@ private:
     std::size_t size_;
     std::array<std::size_t, N> strides_;
 
+public:
+    MatrixBase() = delete;
+    using Base = ObjectBase<MatrixBase<Derived, T, N>>;
+    using Base::applyFunction;
+
     Derived& self() { return static_cast<Derived&>(*this); }
     const Derived& self() const { return static_cast<const Derived&>(*this); }
 
-public:
-    MatrixBase() = delete;
-
 protected:
+
     virtual ~MatrixBase() = default;
 
     MatrixBase(const std::array<std::size_t, N>& dims);
@@ -46,7 +45,7 @@ protected:
     template <typename... Dims>
     explicit MatrixBase(Dims... dims);
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     MatrixBase(const MatrixBase<DerivedOther, U, N>&);
 
     MatrixBase(typename MatrixInitializer<T, N>::type init);
@@ -142,6 +141,10 @@ public:
         }
         return os << '}';
     }
+
+    template <std::semiregular U> requires std::is_convertible_v<U, T>
+    MatrixBase& operator=(const U& val);
+
 };
 
 template <typename Derived, std::semiregular T, std::size_t N>
@@ -166,7 +169,7 @@ MatrixBase<Derived, T, N>::MatrixBase(Dims... dims) : dims_{static_cast<std::siz
 }
 
 template <typename Derived, std::semiregular T, std::size_t N>
-template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixBase<Derived, T, N>::MatrixBase(const MatrixBase<DerivedOther, U, N>& other)
     : dims_(other.dims_), size_(other.size_), strides_(other.strides_) {}
 
@@ -287,9 +290,14 @@ MatrixView<T, N - 1> MatrixBase<Derived, T, N>::col(std::size_t n) const {
     return nth_col;
 }
 
+template <typename Derived, std::semiregular T, std::size_t N>
+template <std::semiregular U> requires std::is_convertible_v<U, T>
+MatrixBase<Derived, T, N>& MatrixBase<Derived, T, N>::operator=(const U& val) {
+    return applyFunction([&val](auto& v) {v = val;});
+}
 
 template <typename Derived, std::semiregular T>
-class MatrixBase<Derived, T, 1> {
+class MatrixBase<Derived, T, 1> : public ObjectBase<MatrixBase<Derived, T, 1>> {
 public:
     static constexpr std::size_t ndim = 1;
 
@@ -302,6 +310,8 @@ private:
 
 public:
     MatrixBase() = delete;
+    using Base = ObjectBase<MatrixBase<Derived, T, 1>>;
+    using Base::applyFunction;
 
 protected:
     virtual ~MatrixBase() = default;
@@ -309,7 +319,7 @@ protected:
     template <typename Dim> requires std::is_integral_v<Dim>
     explicit MatrixBase(Dim dim) : dims_(dim), strides_(1) {};
 
-    template <typename DerivedOther, std::regular U> requires std::is_convertible_v<U, T>
+    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     MatrixBase(const MatrixBase<DerivedOther, U, 1>&);
 
     MatrixBase(typename MatrixInitializer<T, 1>::type init);
@@ -384,6 +394,7 @@ public:
         }
         return os << '}';
     }
+
 };
 
 template <typename Derived, std::semiregular T>

@@ -11,14 +11,35 @@
 
 namespace frozenca {
 
-template <typename, template <typename...> typename>
-struct is_instance_impl : public std::false_type {};
+template <typename A, typename B>
+concept Addable = requires (A a, B b) {
+    { a + b } -> std::convertible_to<A>;
+};
 
-template <template <typename...> typename U, typename... Ts>
-struct is_instance_impl<U<Ts...>, U> : public std::true_type {};
+template <typename A, typename B>
+concept Subtractable = requires (A a, B b) {
+    { a - b } -> std::convertible_to<A>;
+};
 
-template <typename T, template <typename ...> typename U>
-inline constexpr bool is_instance_of = is_instance_impl<std::decay_t<T>, U>();
+template <typename A, typename B>
+concept Multipliable = requires (A a, B b) {
+    { a * b } -> std::convertible_to<A>;
+};
+
+template <typename A, typename B>
+concept Dividable = requires (A a, B b) {
+    { a / b } -> std::convertible_to<A>;
+    { a % b } -> std::convertible_to<A>;
+};
+
+template <typename A, typename B>
+concept BitMaskable = requires (A a, B b) {
+    { a & b } -> std::convertible_to<A>;
+    { a | b } -> std::convertible_to<A>;
+    { a ^ b } -> std::convertible_to<A>;
+    { a << b } -> std::convertible_to<A>;
+    { a >> b } -> std::convertible_to<A>;
+};
 
 template <typename... Args>
 inline constexpr bool All(Args... args) { return (... && args); };
