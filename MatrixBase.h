@@ -343,11 +343,15 @@ public:
     auto rend() { return self().rend(); }
     auto crend() const { return self().crend(); }
 
-    template <IndexType... Args>
-    reference operator()(Args... args);
+    template <typename Dim> requires std::is_integral_v<Dim>
+    reference operator()(Dim dim) {
+        return operator[](dim);
+    }
 
-    template <IndexType... Args>
-    const_reference operator()(Args... args) const;
+    template <typename Dim> requires std::is_integral_v<Dim>
+    const_reference operator()(Dim dim) const {
+        return operator[](dim);
+    }
 
     [[nodiscard]] std::size_t size() const { return size_;}
 
