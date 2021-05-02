@@ -262,6 +262,58 @@ void AddTo(MatrixView<T, N>& m,
     }
 }
 
+template <std::semiregular U, std::semiregular V, std::semiregular T,
+        std::size_t N1, std::size_t N2, std::size_t N>
+requires SubtractableTo<U, V, T> && (std::max(N1, N2) == N)
+void SubtractTo(MatrixView<T, N>& m,
+           const MatrixView<U, N1>& m1,
+           const MatrixView<V, N2>& m2) {
+    if constexpr (N == 1) {
+        m.applyBroadcast(m1, m2, Minus<U, V, T>);
+    } else {
+        m.applyBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
+}
+
+template <std::semiregular U, std::semiregular V, std::semiregular T,
+        std::size_t N1, std::size_t N2, std::size_t N>
+requires MultipliableTo<U, V, T> && (std::max(N1, N2) == N)
+void MultiplyTo(MatrixView<T, N>& m,
+                const MatrixView<U, N1>& m1,
+                const MatrixView<V, N2>& m2) {
+    if constexpr (N == 1) {
+        m.applyBroadcast(m1, m2, Multiplies<U, V, T>);
+    } else {
+        m.applyBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
+}
+
+template <std::semiregular U, std::semiregular V, std::semiregular T,
+        std::size_t N1, std::size_t N2, std::size_t N>
+requires DividableTo<U, V, T> && (std::max(N1, N2) == N)
+void DivideTo(MatrixView<T, N>& m,
+                const MatrixView<U, N1>& m1,
+                const MatrixView<V, N2>& m2) {
+    if constexpr (N == 1) {
+        m.applyBroadcast(m1, m2, Divides<U, V, T>);
+    } else {
+        m.applyBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
+}
+
+template <std::semiregular U, std::semiregular V, std::semiregular T,
+        std::size_t N1, std::size_t N2, std::size_t N>
+requires RemaindableTo<U, V, T> && (std::max(N1, N2) == N)
+void ModuloTo(MatrixView<T, N>& m,
+              const MatrixView<U, N1>& m1,
+              const MatrixView<V, N2>& m2) {
+    if constexpr (N == 1) {
+        m.applyBroadcast(m1, m2, Modulus<U, V, T>);
+    } else {
+        m.applyBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
+}
+
 } // anonymous namespace
 
 template <typename Derived1, typename Derived2,
@@ -276,8 +328,53 @@ decltype(auto) operator+ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     return res;
 }
 
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::size_t N1, std::size_t N2> requires WeakSubtractable<U, V>
+decltype(auto) operator- (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
+    using T = std::invoke_result_t<decltype(Minus<U, V>), U, V>;
+    constexpr std::size_t N = std::max(N1, N2);
+    auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
+    Matrix<T, N> res = zeros<T, N>(dims);
+    res.applyBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    return res;
+}
 
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::size_t N1, std::size_t N2> requires WeakMultipliable<U, V>
+decltype(auto) operator* (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
+    using T = std::invoke_result_t<decltype(Multiplies<U, V>), U, V>;
+    constexpr std::size_t N = std::max(N1, N2);
+    auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
+    Matrix<T, N> res = zeros<T, N>(dims);
+    res.applyBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    return res;
+}
 
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::size_t N1, std::size_t N2> requires WeakDividable<U, V>
+decltype(auto) operator/ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
+    using T = std::invoke_result_t<decltype(Divides<U, V>), U, V>;
+    constexpr std::size_t N = std::max(N1, N2);
+    auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
+    Matrix<T, N> res = zeros<T, N>(dims);
+    res.applyBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    return res;
+}
+
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::size_t N1, std::size_t N2> requires WeakRemaindable<U, V>
+decltype(auto) operator% (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
+    using T = std::invoke_result_t<decltype(Modulus<U, V>), U, V>;
+    constexpr std::size_t N = std::max(N1, N2);
+    auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
+    Matrix<T, N> res = zeros<T, N>(dims);
+    res.applyBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    return res;
+}
 
 } // namespace frozenca
 

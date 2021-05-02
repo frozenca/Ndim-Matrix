@@ -168,17 +168,17 @@ inline void Minus(C& c, const A& a, const B& b) {
 }
 
 template <typename A, typename B, typename C> requires MultipliableTo<A, B, C>
-inline decltype(auto) Multiplies(C& c, const A& a, const B& b) {
+inline void Multiplies(C& c, const A& a, const B& b) {
     c = a * b;
 }
 
 template <typename A, typename B, typename C> requires DividableTo<A, B, C>
-inline decltype(auto) Divides(C& c, const A& a, const B& b) {
+inline void Divides(C& c, const A& a, const B& b) {
     c = a / b;
 }
 
 template <typename A, typename B, typename C> requires RemaindableTo<A, B, C>
-inline decltype(auto) Modulus(C& c, const A& a, const B& b) {
+inline void Modulus(C& c, const A& a, const B& b) {
     c = a % b;
 }
 

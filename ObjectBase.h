@@ -18,18 +18,18 @@ protected:
 
 public:
     virtual ~ObjectBase() = default;
-    auto begin() { return self().self().begin(); }
-    auto begin() const { return self().self().begin(); }
-    auto cbegin() const { return self().self().cbegin(); }
-    auto end() { return self().self().end(); }
-    auto end() const { return self().self().end(); }
-    auto cend() const { return self().self().cend(); }
-    auto rbegin() { return self().self().rbegin(); }
-    auto rbegin() const { return self().self().rbegin(); }
-    auto crbegin() const { return self().self().crbegin(); }
-    auto rend() { return self().self().rend(); }
-    auto rend() const { return self().self().rend(); }
-    auto crend() const { return self().self().crend(); }
+    auto begin() { return self().begin(); }
+    auto begin() const { return self().begin(); }
+    auto cbegin() const { return self().cbegin(); }
+    auto end() { return self().end(); }
+    auto end() const { return self().end(); }
+    auto cend() const { return self().cend(); }
+    auto rbegin() { return self().rbegin(); }
+    auto rbegin() const { return self().rbegin(); }
+    auto crbegin() const { return self().crbegin(); }
+    auto rend() { return self().rend(); }
+    auto rend() const { return self().rend(); }
+    auto crend() const { return self().crend(); }
 
     template <typename F> requires std::invocable<F, typename Derived::reference>
     ObjectBase& applyFunction(F&& f);
