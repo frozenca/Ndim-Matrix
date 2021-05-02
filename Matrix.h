@@ -256,7 +256,7 @@ void AddTo(MatrixView<T, N>& m,
            const MatrixView<U, N1>& m1,
            const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, Plus<U, V, T>);
+        m.applyBroadcast(m1, m2, PlusTo<U, V, T>);
     } else {
         m.applyBroadcast(m1, m2, AddTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
@@ -269,7 +269,7 @@ void SubtractTo(MatrixView<T, N>& m,
            const MatrixView<U, N1>& m1,
            const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, Minus<U, V, T>);
+        m.applyBroadcast(m1, m2, MinusTo<U, V, T>);
     } else {
         m.applyBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
@@ -282,7 +282,7 @@ void MultiplyTo(MatrixView<T, N>& m,
                 const MatrixView<U, N1>& m1,
                 const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, Multiplies<U, V, T>);
+        m.applyBroadcast(m1, m2, MultipliesTo<U, V, T>);
     } else {
         m.applyBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
@@ -295,7 +295,7 @@ void DivideTo(MatrixView<T, N>& m,
                 const MatrixView<U, N1>& m1,
                 const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, Divides<U, V, T>);
+        m.applyBroadcast(m1, m2, DividesTo<U, V, T>);
     } else {
         m.applyBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
@@ -308,7 +308,7 @@ void ModuloTo(MatrixView<T, N>& m,
               const MatrixView<U, N1>& m1,
               const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, Modulus<U, V, T>);
+        m.applyBroadcast(m1, m2, ModulusTo<U, V, T>);
     } else {
         m.applyBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }

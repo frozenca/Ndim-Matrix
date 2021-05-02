@@ -158,27 +158,27 @@ inline decltype(auto) Modulus(A a, B b) {
 }
 
 template <typename A, typename B, typename C> requires AddableTo<A, B, C>
-inline void Plus(C& c, const A& a, const B& b) {
+inline void PlusTo(C& c, const A& a, const B& b) {
     c = a + b;
 }
 
 template <typename A, typename B, typename C> requires SubtractableTo<A, B, C>
-inline void Minus(C& c, const A& a, const B& b) {
+inline void MinusTo(C& c, const A& a, const B& b) {
     c = a - b;
 }
 
 template <typename A, typename B, typename C> requires MultipliableTo<A, B, C>
-inline void Multiplies(C& c, const A& a, const B& b) {
+inline void MultipliesTo(C& c, const A& a, const B& b) {
     c = a * b;
 }
 
 template <typename A, typename B, typename C> requires DividableTo<A, B, C>
-inline void Divides(C& c, const A& a, const B& b) {
+inline void DividesTo(C& c, const A& a, const B& b) {
     c = a / b;
 }
 
 template <typename A, typename B, typename C> requires RemaindableTo<A, B, C>
-inline void Modulus(C& c, const A& a, const B& b) {
+inline void ModulusTo(C& c, const A& a, const B& b) {
     c = a % b;
 }
 
