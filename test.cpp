@@ -59,10 +59,11 @@ int main() {
 
     std::cout << m4 << '\n';
 
-    auto m6 = frozenca::ones<double, 3>({2, 3, 3});
+    auto m6 = frozenca::zeros<double, 3>({1, 4, 5});
+    std::iota(std::begin(m6), std::end(m6), 1);
     std::cout << m6 << '\n';
 
-    auto m7 = frozenca::zeros<int, 2>({1, 3});
+    auto m7 = frozenca::zeros<int, 4>({2, 3, 1, 1});
     std::iota(std::begin(m7), std::end(m7), 1);
     std::cout << m7 << '\n';
 

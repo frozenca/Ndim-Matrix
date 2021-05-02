@@ -415,12 +415,16 @@ public:
     }
 
     auto begin() { return self().begin(); }
+    auto begin() const { return self().begin(); }
     auto cbegin() const { return self().cbegin(); }
     auto end() { return self().end(); }
+    auto end() const { return self().end(); }
     auto cend() const { return self().cend(); }
     auto rbegin() { return self().rbegin(); }
+    auto rbegin() const { return self().rbegin(); }
     auto crbegin() const { return self().crbegin(); }
     auto rend() { return self().rend(); }
+    auto rend() const { return self().rend(); }
     auto crend() const { return self().crend(); }
 
     template <typename Dim> requires std::is_integral_v<Dim>
