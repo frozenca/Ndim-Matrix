@@ -1,18 +1,52 @@
 #ifndef FROZENCA_MATRIXUTILS_H
 #define FROZENCA_MATRIXUTILS_H
 
+#include <algorithm>
 #include <array>
 #include <cassert>
-#include <complex>
 #include <concepts>
 #include <cstddef>
 #include <initializer_list>
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <stdexcept>
 #include <type_traits>
 
 namespace frozenca {
+
+template <std::semiregular T, std::size_t N>
+class Matrix;
+
+template <std::semiregular T, std::size_t N>
+class MatrixView;
+
+template <typename Derived, std::semiregular T, std::size_t N>
+class MatrixBase;
+
+template <typename Derived>
+class ObjectBase;
+
+template <typename T>
+constexpr bool NotMatrix = true;
+
+template <std::semiregular T, std::size_t N>
+constexpr bool NotMatrix<Matrix<T, N>> = false;
+
+template <std::semiregular T, std::size_t N>
+constexpr bool NotMatrix<MatrixView<T, N>> = false;
+
+template <typename Derived, std::semiregular T, std::size_t N>
+constexpr bool NotMatrix<MatrixBase<Derived, T, N>> = false;
+
+template <typename Derived>
+constexpr bool NotMatrix<ObjectBase<Derived>> = false;
+
+template <typename T>
+concept isNotMatrix = NotMatrix<T> && std::semiregular<T>;
+
+template <typename T>
+concept isMatrix = !NotMatrix<T>;
 
 template <typename T>
 concept OneExists = requires () {
@@ -20,40 +54,181 @@ concept OneExists = requires () {
 };
 
 template <typename A, typename B>
-concept Addable = requires (A a, B b) {
-    { a + b } -> std::convertible_to<A>;
+concept WeakAddable = requires (A a, B b) {
+    a + b;
 };
 
 template <typename A, typename B>
-concept Subtractable = requires (A a, B b) {
-    { a - b } -> std::convertible_to<A>;
+concept WeakSubtractable = requires (A a, B b) {
+    a - b;
 };
 
 template <typename A, typename B>
-concept Multipliable = requires (A a, B b) {
-    { a * b } -> std::convertible_to<A>;
+concept WeakMultipliable = requires (A a, B b) {
+    a * b;
 };
 
 template <typename A, typename B>
-concept Dividable = requires (A a, B b) {
-    { a / b } -> std::convertible_to<A>;
-    { a % b } -> std::convertible_to<A>;
+concept WeakDividable = requires (A a, B b) {
+    a / b;
 };
 
 template <typename A, typename B>
-concept BitMaskable = requires (A a, B b) {
-    { a & b } -> std::convertible_to<A>;
-    { a | b } -> std::convertible_to<A>;
-    { a ^ b } -> std::convertible_to<A>;
-    { a << b } -> std::convertible_to<A>;
-    { a >> b } -> std::convertible_to<A>;
+concept WeakRemaindable = requires (A a, B b) {
+    a / b;
+    a % b;
 };
+
+template <typename A, typename B, typename C>
+concept AddableTo = requires (A a, B b) {
+    { a + b } -> std::convertible_to<C>;
+};
+
+template <typename A, typename B, typename C>
+concept SubtractableTo = requires (A a, B b) {
+    { a - b } -> std::convertible_to<C>;
+};
+
+template <typename A, typename B, typename C>
+concept MultipliableTo = requires (A a, B b) {
+    { a * b } -> std::convertible_to<C>;
+};
+
+template <typename A, typename B, typename C>
+concept DividableTo = requires (A a, B b) {
+    { a / b } -> std::convertible_to<C>;
+};
+
+template <typename A, typename B, typename C>
+concept RemaindableTo = requires (A a, B b) {
+    { a / b } -> std::convertible_to<C>;
+    { a % b } -> std::convertible_to<C>;
+};
+
+template <typename A, typename B, typename C>
+concept BitMaskableTo = requires (A a, B b) {
+    { a & b } -> std::convertible_to<C>;
+    { a | b } -> std::convertible_to<C>;
+    { a ^ b } -> std::convertible_to<C>;
+    { a << b } -> std::convertible_to<C>;
+    { a >> b } -> std::convertible_to<C>;
+};
+
+template <typename A, typename B>
+concept Addable = AddableTo<A, B, A>;
+
+template <typename A, typename B>
+concept Subtractable = SubtractableTo<A, B, A>;
+
+template <typename A, typename B>
+concept Multipliable = MultipliableTo<A, B, A>;
+
+template <typename A, typename B>
+concept Dividable = DividableTo<A, B, A>;
+
+template <typename A, typename B>
+concept Remaindable = RemaindableTo<A, B, A>;
+
+template <typename A, typename B>
+concept BitMaskable = BitMaskableTo<A, B, A>;
+
+template <typename A, typename B> requires WeakAddable<A, B>
+inline decltype(auto) Plus(A a, B b) {
+    return a + b;
+}
+
+template <typename A, typename B> requires WeakSubtractable<A, B>
+inline decltype(auto) Minus(A a, B b) {
+    return a - b;
+}
+
+template <typename A, typename B> requires WeakMultipliable<A, B>
+inline decltype(auto) Multiplies(A a, B b) {
+    return a * b;
+}
+
+template <typename A, typename B> requires WeakDividable<A, B>
+inline decltype(auto) Divides(A a, B b) {
+    return a / b;
+}
+
+template <typename A, typename B> requires WeakRemaindable<A, B>
+inline decltype(auto) Modulus(A a, B b) {
+    return a % b;
+}
+
+template <typename A, typename B, typename C> requires AddableTo<A, B, C>
+inline void Plus(C& c, const A& a, const B& b) {
+    c = a + b;
+}
+
+template <typename A, typename B, typename C> requires SubtractableTo<A, B, C>
+inline void Minus(C& c, const A& a, const B& b) {
+    c = a - b;
+}
+
+template <typename A, typename B, typename C> requires MultipliableTo<A, B, C>
+inline decltype(auto) Multiplies(C& c, const A& a, const B& b) {
+    c = a * b;
+}
+
+template <typename A, typename B, typename C> requires DividableTo<A, B, C>
+inline decltype(auto) Divides(C& c, const A& a, const B& b) {
+    c = a / b;
+}
+
+template <typename A, typename B, typename C> requires RemaindableTo<A, B, C>
+inline decltype(auto) Modulus(C& c, const A& a, const B& b) {
+    c = a % b;
+}
 
 template <typename... Args>
 inline constexpr bool All(Args... args) { return (... && args); };
 
 template <typename... Args>
 inline constexpr bool Some(Args... args) { return (... || args); };
+
+template <std::size_t M, std::size_t N> requires (N < M)
+std::array<std::size_t, M> prependDims(const std::array<std::size_t, N>& arr) {
+    std::array<std::size_t, M> dims;
+    std::ranges::fill(dims, 1u);
+    std::ranges::copy(arr, std::begin(dims) + (M - N));
+    return dims;
+}
+
+template <std::size_t M, std::size_t N>
+bool bidirBroadcastable(const std::array<std::size_t, M>& sz1,
+                        const std::array<std::size_t, N>& sz2) {
+    if constexpr (M == N) {
+        return (std::ranges::equal(sz1, sz2, [](const auto& d1, const auto& d2) {
+            return (d1 == d2) || (d1 == 1) || (d2 == 1);}));
+    } else if constexpr (M < N) {
+        return bidirBroadcastable(prependDims<N, M>(sz1), sz2);
+    } else {
+        static_assert(M > N);
+        return bidirBroadcastable(sz1, prependDims<M, N>(sz2));
+    }
+}
+
+template <std::size_t M, std::size_t N>
+std::array<std::size_t, std::max(M, N)> bidirBroadcastedDims(const std::array<std::size_t, M>& sz1,
+                                                             const std::array<std::size_t, N>& sz2) {
+    if constexpr (M == N) {
+        if (!bidirBroadcastable(sz1, sz2)) {
+            throw std::invalid_argument("Cannot broadcast");
+        }
+        std::array<std::size_t, M> sz;
+        std::ranges::transform(sz1, sz2, std::begin(sz), [](const auto& d1, const auto& d2) {
+            return std::max(d1, d2);
+        });
+        return sz;
+    } else if constexpr (M < N) {
+        return bidirBroadcastedDims(prependDims<N, M>(sz1), sz2);
+    } else {
+        static_assert(M > N);
+        return bidirBroadcastedDims(sz1, prependDims<M, N>(sz2));
+    }
+}
 
 template <typename... Args>
 concept IndexType = All(std::is_integral_v<Args>...);

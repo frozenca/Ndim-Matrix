@@ -1,10 +1,7 @@
 #ifndef FROZENCA_MATRIXBASE_H
 #define FROZENCA_MATRIXBASE_H
 
-#include <algorithm>
-#include <cassert>
 #include <numeric>
-#include <stdexcept>
 #include "ObjectBase.h"
 #include "MatrixInitializer.h"
 
@@ -28,17 +25,26 @@ public:
     MatrixBase() = delete;
     using Base = ObjectBase<MatrixBase<Derived, T, N>>;
     using Base::applyFunction;
+    using Base::operator=;
+    using Base::operator+=;
+    using Base::operator-=;
+    using Base::operator*=;
+    using Base::operator/=;
+    using Base::operator%=;
 
     Derived& self() { return static_cast<Derived&>(*this); }
     const Derived& self() const { return static_cast<const Derived&>(*this); }
 
-protected:
-
     virtual ~MatrixBase() = default;
+
+protected:
 
     MatrixBase(const std::array<std::size_t, N>& dims);
 
-    template <typename... Dims>
+    template <std::size_t M> requires (M < N)
+    MatrixBase(const std::array<std::size_t, M>& dims);
+
+    template <IndexType... Dims>
     explicit MatrixBase(Dims... dims);
 
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
@@ -66,12 +72,16 @@ public:
     }
 
     auto begin() { return self().begin(); }
+    auto begin() const { return self().begin(); }
     auto cbegin() const { return self().cbegin(); }
     auto end() { return self().end(); }
+    auto end() const { return self().end(); }
     auto cend() const { return self().cend(); }
     auto rbegin() { return self().rbegin(); }
+    auto rbegin() const { return self().rbegin(); }
     auto crbegin() const { return self().crbegin(); }
     auto rend() { return self().rend(); }
+    auto rend() const { return self().rend(); }
     auto crend() const { return self().crend(); }
 
     template <IndexType... Args>
@@ -138,8 +148,16 @@ public:
         return os << '}';
     }
 
-    template <std::semiregular U> requires std::is_convertible_v<U, T>
-    MatrixBase& operator=(const U& val);
+    template <typename DerivedOther1, typename DerivedOther2,
+            std::semiregular U, std::semiregular V,
+            std::size_t N1, std::size_t N2,
+            std::invocable<MatrixView<T, N - 1>&,
+                    const MatrixView<U, std::min(N1, N - 1)>&,
+                    const MatrixView<V, std::min(N2, N - 1)>&> F>
+    requires (std::max(N1, N2) == N)
+    MatrixBase& applyBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
+                               const MatrixBase<DerivedOther2, V, N2>& m2,
+                               F&& f);
 
 };
 
@@ -153,7 +171,11 @@ MatrixBase<Derived, T, N>::MatrixBase(const std::array<std::size_t, N>& dims) : 
 }
 
 template <typename Derived, std::semiregular T, std::size_t N>
-template <typename... Dims>
+template <std::size_t M> requires (M < N)
+MatrixBase<Derived, T, N>::MatrixBase(const std::array<std::size_t, M>& dims) : MatrixBase (prepend<N, M>(dims)) {}
+
+template <typename Derived, std::semiregular T, std::size_t N>
+template <IndexType... Dims>
 MatrixBase<Derived, T, N>::MatrixBase(Dims... dims) : dims_{static_cast<std::size_t>(dims)...} {
     static_assert(sizeof...(Dims) == N);
     static_assert((std::is_integral_v<Dims> && ...));
@@ -166,12 +188,10 @@ MatrixBase<Derived, T, N>::MatrixBase(Dims... dims) : dims_{static_cast<std::siz
 
 template <typename Derived, std::semiregular T, std::size_t N>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-MatrixBase<Derived, T, N>::MatrixBase(const MatrixBase<DerivedOther, U, N>& other)
-    : dims_(other.dims_), size_(other.size_), strides_(other.strides_) {}
+MatrixBase<Derived, T, N>::MatrixBase(const MatrixBase<DerivedOther, U, N>& other) : MatrixBase(other.dims()) {}
 
 template <typename Derived, std::semiregular T, std::size_t N>
-MatrixBase<Derived, T, N>::MatrixBase(typename MatrixInitializer<T, N>::type init) : MatrixBase(deriveDims<N>(init)) {
-}
+MatrixBase<Derived, T, N>::MatrixBase(typename MatrixInitializer<T, N>::type init) : MatrixBase(deriveDims<N>(init)) {}
 
 template <typename Derived, std::semiregular T, std::size_t N>
 template <IndexType... Args>
@@ -287,9 +307,64 @@ MatrixView<T, N - 1> MatrixBase<Derived, T, N>::col(std::size_t n) const {
 }
 
 template <typename Derived, std::semiregular T, std::size_t N>
-template <std::semiregular U> requires std::is_convertible_v<U, T>
-MatrixBase<Derived, T, N>& MatrixBase<Derived, T, N>::operator=(const U& val) {
-    return applyFunction([&val](auto& v) {v = val;});
+template <typename DerivedOther1, typename DerivedOther2,
+        std::semiregular U, std::semiregular V,
+        std::size_t N1, std::size_t N2,
+        std::invocable<MatrixView<T, N - 1>&,
+                const MatrixView<U, std::min(N1, N - 1)>&,
+                const MatrixView<V, std::min(N2, N - 1)>&> F>
+requires (std::max(N1, N2) == N)
+MatrixBase<Derived, T, N>& MatrixBase<Derived, T, N>::applyBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
+                                                                     const MatrixBase<DerivedOther2, V, N2>& m2,
+                                                                     F&& f) {
+    if constexpr (N1 == N) {
+        if constexpr (N2 == N) {
+            auto r = dims(0);
+            auto r1 = m1.dims(0);
+            auto r2 = m2.dims(0);
+            if (r1 == r) {
+                if (r2 == r) {
+                    for (std::size_t i = 0; i < r; ++i) {
+                        auto row = this->row(i);
+                        f(row, m1.row(i), m2.row(i));
+                    }
+                } else { // r2 < r == r1
+                    auto row2 = m2.row(0);
+                    for (std::size_t i = 0; i < r; ++i) {
+                        auto row = this->row(i);
+                        f(row, m1.row(i), row2);
+                    }
+                }
+            } else if (r2 == r) { // r1 < r == r2
+                auto row1 = m1.row(0);
+                for (std::size_t i = 0; i < r; ++i) {
+                    auto row = this->row(i);
+                    f(row, row1, m2.row(i));
+                }
+            } else {
+                assert(0); // cannot happen
+            }
+        } else { // N2 < N == N1
+            auto r = dims(0);
+            assert(r == m1.dims(0));
+            MatrixView<V, N2> view2 (m2);
+            for (std::size_t i = 0; i < r; ++i) {
+                auto row = this->row(i);
+                f(row, m1.row(i), view2);
+            }
+        }
+    } else if constexpr (N2 == N) { // N1 < N == N2
+        auto r = dims(0);
+        assert(r == m2.dims(0));
+        MatrixView<U, N1> view1 (m1);
+        for (std::size_t i = 0; i < r; ++i) {
+            auto row = this->row(i);
+            f(row, view1, m2.row(i));
+        }
+    } else {
+        assert(0); // cannot happen
+    }
+    return *this;
 }
 
 template <typename Derived, std::semiregular T>
@@ -308,6 +383,12 @@ public:
     MatrixBase() = delete;
     using Base = ObjectBase<MatrixBase<Derived, T, 1>>;
     using Base::applyFunction;
+    using Base::operator=;
+    using Base::operator+=;
+    using Base::operator-=;
+    using Base::operator*=;
+    using Base::operator/=;
+    using Base::operator%=;
 
 protected:
     virtual ~MatrixBase() = default;
@@ -352,7 +433,14 @@ public:
         return operator[](dim);
     }
 
-    [[nodiscard]] std::size_t dims() const {
+    [[nodiscard]] std::array<std::size_t, 1> dims() const {
+        return {dims_};
+    }
+
+    [[nodiscard]] std::size_t dims(std::size_t n) const {
+        if (n >= 1) {
+            throw std::out_of_range("Out of range in dims");
+        }
         return dims_;
     }
 
@@ -390,6 +478,13 @@ public:
         }
         return os << '}';
     }
+
+    template <typename DerivedOther1, typename DerivedOther2,
+            std::semiregular U, std::semiregular V,
+            std::invocable<T&, const U&, const V&> F>
+    MatrixBase& applyBroadcast(const MatrixBase<DerivedOther1, U, 1>& m1,
+                               const MatrixBase<DerivedOther2, V, 1>& m2,
+                               F&& f);
 
 };
 
@@ -445,6 +540,38 @@ T& MatrixBase<Derived, T, 1>::col(std::size_t n) {
 template <typename Derived, std::semiregular T>
 const T& MatrixBase<Derived, T, 1>::col(std::size_t n) const {
     return row(n);
+}
+
+template <typename Derived, std::semiregular T>
+template <typename DerivedOther1, typename DerivedOther2,
+        std::semiregular U, std::semiregular V,
+        std::invocable<T&, const U&, const V&> F>
+MatrixBase<Derived, T, 1>& MatrixBase<Derived, T, 1>::applyBroadcast(const MatrixBase<DerivedOther1, U, 1>& m1,
+                                                                     const MatrixBase<DerivedOther2, V, 1>& m2,
+                                                                     F&& f) {
+    // real update is done here by passing lvalue reference T&
+    auto r = dims(0);
+    auto r1 = m1.dims(0);
+    auto r2 = m2.dims(0);
+
+    if (r1 == r) {
+        if (r2 == r) {
+            for (std::size_t i = 0; i < r; ++i) {
+                f(this->row(i), m1.row(i), m2.row(i));
+            }
+        } else { // r2 < r == r1
+            auto row2 = m2.row(0);
+            for (std::size_t i = 0; i < r; ++i) {
+                f(this->row(i), m1.row(i), row2);
+            }
+        }
+    } else if (r2 == r) { // r1 < r == r2
+        auto row1 = m1.row(0);
+        for (std::size_t i = 0; i < r; ++i) {
+            f(this->row(i), row1, m2.row(i));
+        }
+    }
+    return *this;
 }
 
 } // namespace frozenca

@@ -18,6 +18,13 @@ public:
     using Base::dims;
     using Base::strides;
     using Base::applyFunction;
+    using Base::applyBroadcast;
+    using Base::operator=;
+    using Base::operator+=;
+    using Base::operator-=;
+    using Base::operator*=;
+    using Base::operator/=;
+    using Base::operator%=;
 
     ~MatrixView() override = default;
 
@@ -66,9 +73,7 @@ public:
         void ValidateOffset() {
             offset_ = std::inner_product(std::cbegin(pos_), std::cend(pos_), std::cbegin(ptr_->orig_strides_), 0lu);
             index_ = std::inner_product(std::cbegin(pos_), std::cend(pos_), std::cbegin(ptr_->strides()), 0lu);
-            if (index_ > ptr_->size()) {
-                throw std::out_of_range("MatrixView iterator out of range");
-            }
+            assert(index_ <= ptr_->size());
         }
 
         void Increment() {
@@ -230,9 +235,6 @@ public:
         return orig_strides_;
     }
 
-    template <std::semiregular U> requires std::is_convertible_v<U, T>
-    MatrixView& operator=(const U& val);
-
 };
 
 template <std::semiregular T, std::size_t N>
@@ -247,7 +249,7 @@ MatrixView<T, N>::MatrixView(const MatrixBase<DerivedOther, U, N>& other) : Base
         data_view_ = static_cast<T*>(other.dataView());
         orig_strides_ = other.origStrides();
     } else {
-        data_view_ = static_cast<T*>(other.begin());
+        data_view_ = const_cast<T*>(other.begin());
         orig_strides_ = other.strides();
     }
 }
@@ -257,13 +259,6 @@ template <typename DerivedOther, std::semiregular U> requires std::is_convertibl
 MatrixView<T, N>& MatrixView<T, N>::operator=(const MatrixBase<DerivedOther, U, N>& other) {
     MatrixView<T, N> mat(other);
     swap(*this, mat);
-    return *this;
-}
-
-template <std::semiregular T, std::size_t N>
-template <std::semiregular U> requires std::is_convertible_v<U, T>
-MatrixView<T, N>& MatrixView<T, N>::operator=(const U& val) {
-    applyFunction([&val](auto& v) {v = val;});
     return *this;
 }
 
@@ -278,6 +273,13 @@ public:
     using Base::dims;
     using Base::strides;
     using Base::applyFunction;
+    using Base::applyBroadcast;
+    using Base::operator=;
+    using Base::operator+=;
+    using Base::operator-=;
+    using Base::operator*=;
+    using Base::operator/=;
+    using Base::operator%=;
 
     ~MatrixView() override = default;
 
@@ -326,9 +328,7 @@ public:
         void ValidateOffset() {
             offset_ = pos_ * ptr_->orig_strides_;
             index_ = pos_ * ptr_->strides();
-            if (index_ > ptr_->dims()) {
-                throw std::out_of_range("MatrixView iterator out of range");
-            }
+            assert(index_ <= ptr_->dims(0));
         }
 
         void Increment() {
@@ -438,9 +438,9 @@ public:
     iterator begin() { return iterator(this);}
     const_iterator begin() const { return const_iterator(this); }
     const_iterator cbegin() const { return const_iterator(this); }
-    iterator end() { return iterator(this, {dims(), });}
-    const_iterator end() const { return const_iterator(this, {dims(), });}
-    const_iterator cend() const { return const_iterator(this, {dims(), });}
+    iterator end() { return iterator(this, {dims(0), });}
+    const_iterator end() const { return const_iterator(this, {dims(0), });}
+    const_iterator cend() const { return const_iterator(this, {dims(0), });}
     reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
     const_reverse_iterator rbegin() const { return std::make_reverse_iterator(cend());}
     const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
@@ -455,9 +455,6 @@ public:
     [[nodiscard]] std::size_t origStrides() const {
         return orig_strides_;
     }
-
-    template <std::semiregular U> requires std::is_convertible_v<U, T>
-    MatrixView& operator=(const U& val);
 
 };
 
@@ -483,13 +480,6 @@ template <typename DerivedOther, std::semiregular U> requires std::is_convertibl
 MatrixView<T, 1>& MatrixView<T, 1>::operator=(const MatrixBase<DerivedOther, U, 1>& other) {
     MatrixView<T, 1> mat(other);
     swap(*this, mat);
-    return *this;
-}
-
-template <std::semiregular T>
-template <std::semiregular U> requires std::is_convertible_v<U, T>
-MatrixView<T, 1>& MatrixView<T, 1>::operator=(const U& val) {
-    applyFunction([&val](auto& v) {v = val;});
     return *this;
 }
 
