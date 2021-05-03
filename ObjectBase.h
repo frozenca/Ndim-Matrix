@@ -15,9 +15,9 @@ private:
 
 protected:
     ObjectBase() = default;
+    ~ObjectBase() noexcept = default;
 
 public:
-    virtual ~ObjectBase() = default;
     auto begin() { return self().begin(); }
     auto begin() const { return self().begin(); }
     auto cbegin() const { return self().cbegin(); }

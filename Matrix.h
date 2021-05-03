@@ -43,7 +43,7 @@ public:
     const_reverse_iterator rend() const { return std::make_reverse_iterator(begin()); }
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
 
-    ~Matrix() override = default;
+    ~Matrix() noexcept = default;
     Matrix(const Matrix& other) : Base(other.dims()), data_(std::make_unique<T[]>(size())) {
         std::size_t index = 0;
         for (auto it = std::cbegin(other); it != std::cend(other); ++it) {
@@ -162,7 +162,7 @@ public:
     const_reverse_iterator rend() const { return std::make_reverse_iterator(begin()); }
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
 
-    ~Matrix() override = default;
+    ~Matrix() noexcept = default;
     Matrix(const Matrix& other) : Base(other.dims(0)), data_(std::make_unique<T[]>(dims(0))) {
         std::size_t index = 0;
         for (auto it = std::cbegin(other); it != std::cend(other); ++it) {

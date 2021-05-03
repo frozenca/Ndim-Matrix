@@ -26,7 +26,7 @@ public:
     using Base::operator/=;
     using Base::operator%=;
 
-    ~MatrixView() override = default;
+    ~MatrixView() noexcept = default;
 
     explicit MatrixView(const std::array<std::size_t, N>& dims,
                         T* data_view,
@@ -281,7 +281,7 @@ public:
     using Base::operator/=;
     using Base::operator%=;
 
-    ~MatrixView() override = default;
+    ~MatrixView() noexcept = default;
 
     explicit MatrixView(const std::array<std::size_t, 1>& dims,
                         T* data_view,

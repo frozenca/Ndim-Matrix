@@ -35,10 +35,8 @@ public:
     Derived& self() { return static_cast<Derived&>(*this); }
     const Derived& self() const { return static_cast<const Derived&>(*this); }
 
-    virtual ~MatrixBase() = default;
-
 protected:
-
+    ~MatrixBase() noexcept = default;
     MatrixBase(const std::array<std::size_t, N>& dims);
 
     template <std::size_t M> requires (M < N)
@@ -391,8 +389,7 @@ public:
     using Base::operator%=;
 
 protected:
-    virtual ~MatrixBase() = default;
-
+    ~MatrixBase() noexcept = default;
     template <typename Dim> requires std::is_integral_v<Dim>
     explicit MatrixBase(Dim dim) : dims_(dim), strides_(1) {};
 
