@@ -50,6 +50,7 @@ concept isMatrix = !NotMatrix<T>;
 
 template <typename T>
 concept OneExists = requires () {
+    { T{0} } -> std::convertible_to<T>;
     { T{1} } -> std::convertible_to<T>;
 };
 
