@@ -153,9 +153,9 @@ public:
                     const MatrixView<U, std::min(N1, N - 1)>&,
                     const MatrixView<V, std::min(N2, N - 1)>&> F>
     requires (std::max(N1, N2) == N)
-    MatrixBase& applyBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
-                               const MatrixBase<DerivedOther2, V, N2>& m2,
-                               F&& f);
+    MatrixBase& applyFunctionWithBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
+                                           const MatrixBase<DerivedOther2, V, N2>& m2,
+                                           F&& f);
 
 };
 
@@ -312,9 +312,9 @@ template <typename DerivedOther1, typename DerivedOther2,
                 const MatrixView<U, std::min(N1, N - 1)>&,
                 const MatrixView<V, std::min(N2, N - 1)>&> F>
 requires (std::max(N1, N2) == N)
-MatrixBase<Derived, T, N>& MatrixBase<Derived, T, N>::applyBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
-                                                                     const MatrixBase<DerivedOther2, V, N2>& m2,
-                                                                     F&& f) {
+MatrixBase<Derived, T, N>& MatrixBase<Derived, T, N>::applyFunctionWithBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
+                                                                                 const MatrixBase<DerivedOther2, V, N2>& m2,
+                                                                                 F&& f) {
     if constexpr (N1 == N) {
         if constexpr (N2 == N) {
             auto r = dims(0);
@@ -483,9 +483,9 @@ public:
     template <typename DerivedOther1, typename DerivedOther2,
             std::semiregular U, std::semiregular V,
             std::invocable<T&, const U&, const V&> F>
-    MatrixBase& applyBroadcast(const MatrixBase<DerivedOther1, U, 1>& m1,
-                               const MatrixBase<DerivedOther2, V, 1>& m2,
-                               F&& f);
+    MatrixBase& applyFunctionWithBroadcast(const frozenca::MatrixBase<DerivedOther1, U, 1>& m1,
+                                           const frozenca::MatrixBase<DerivedOther2, V, 1>& m2,
+                                           F&& f);
 
 };
 
@@ -547,9 +547,10 @@ template <typename Derived, std::semiregular T>
 template <typename DerivedOther1, typename DerivedOther2,
         std::semiregular U, std::semiregular V,
         std::invocable<T&, const U&, const V&> F>
-MatrixBase<Derived, T, 1>& MatrixBase<Derived, T, 1>::applyBroadcast(const MatrixBase<DerivedOther1, U, 1>& m1,
-                                                                     const MatrixBase<DerivedOther2, V, 1>& m2,
-                                                                     F&& f) {
+MatrixBase<Derived, T, 1>& MatrixBase<Derived, T, 1>::applyFunctionWithBroadcast(
+        const frozenca::MatrixBase<DerivedOther1, U, 1>& m1,
+        const frozenca::MatrixBase<DerivedOther2, V, 1>& m2,
+        F&& f) {
     // real update is done here by passing lvalue reference T&
     auto r = dims(0);
     auto r1 = m1.dims(0);

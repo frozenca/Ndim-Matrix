@@ -17,7 +17,7 @@ public:
     using Base::dims;
     using Base::strides;
     using Base::applyFunction;
-    using Base::applyBroadcast;
+    using Base::applyFunctionWithBroadcast;
     using Base::operator=;
     using Base::operator+=;
     using Base::operator-=;
@@ -131,7 +131,7 @@ public:
     using Base::dims;
     using Base::strides;
     using Base::applyFunction;
-    using Base::applyBroadcast;
+    using Base::applyFunctionWithBroadcast;
     using Base::operator=;
     using Base::operator+=;
     using Base::operator-=;
@@ -256,9 +256,9 @@ void AddTo(MatrixView<T, N>& m,
            const MatrixView<U, N1>& m1,
            const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, PlusTo<U, V, T>);
+        m.applyFunctionWithBroadcast(m1, m2, PlusTo<U, V, T>);
     } else {
-        m.applyBroadcast(m1, m2, AddTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+        m.applyFunctionWithBroadcast(m1, m2, AddTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
 }
 
@@ -269,9 +269,9 @@ void SubtractTo(MatrixView<T, N>& m,
            const MatrixView<U, N1>& m1,
            const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, MinusTo<U, V, T>);
+        m.applyFunctionWithBroadcast(m1, m2, MinusTo<U, V, T>);
     } else {
-        m.applyBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+        m.applyFunctionWithBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
 }
 
@@ -282,9 +282,9 @@ void MultiplyTo(MatrixView<T, N>& m,
                 const MatrixView<U, N1>& m1,
                 const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, MultipliesTo<U, V, T>);
+        m.applyFunctionWithBroadcast(m1, m2, MultipliesTo<U, V, T>);
     } else {
-        m.applyBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+        m.applyFunctionWithBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
 }
 
@@ -295,9 +295,9 @@ void DivideTo(MatrixView<T, N>& m,
                 const MatrixView<U, N1>& m1,
                 const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, DividesTo<U, V, T>);
+        m.applyFunctionWithBroadcast(m1, m2, DividesTo<U, V, T>);
     } else {
-        m.applyBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+        m.applyFunctionWithBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
 }
 
@@ -308,9 +308,9 @@ void ModuloTo(MatrixView<T, N>& m,
               const MatrixView<U, N1>& m1,
               const MatrixView<V, N2>& m2) {
     if constexpr (N == 1) {
-        m.applyBroadcast(m1, m2, ModulusTo<U, V, T>);
+        m.applyFunctionWithBroadcast(m1, m2, ModulusTo<U, V, T>);
     } else {
-        m.applyBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+        m.applyFunctionWithBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
 }
 
@@ -324,7 +324,7 @@ decltype(auto) operator+ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyBroadcast(m1, m2, AddTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    res.applyFunctionWithBroadcast(m1, m2, AddTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     return res;
 }
 
@@ -336,7 +336,7 @@ decltype(auto) operator- (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    res.applyFunctionWithBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     return res;
 }
 
@@ -348,7 +348,7 @@ decltype(auto) operator* (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    res.applyFunctionWithBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     return res;
 }
 
@@ -360,7 +360,7 @@ decltype(auto) operator/ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    res.applyFunctionWithBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     return res;
 }
 
@@ -372,7 +372,7 @@ decltype(auto) operator% (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    res.applyFunctionWithBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     return res;
 }
 

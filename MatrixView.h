@@ -18,7 +18,7 @@ public:
     using Base::dims;
     using Base::strides;
     using Base::applyFunction;
-    using Base::applyBroadcast;
+    using Base::applyFunctionWithBroadcast;
     using Base::operator=;
     using Base::operator+=;
     using Base::operator-=;
@@ -273,7 +273,7 @@ public:
     using Base::dims;
     using Base::strides;
     using Base::applyFunction;
-    using Base::applyBroadcast;
+    using Base::applyFunctionWithBroadcast;
     using Base::operator=;
     using Base::operator+=;
     using Base::operator-=;
