@@ -317,14 +317,15 @@ Mat<B> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
         if (mat(0, 0) == A{0}) {
             throw std::invalid_argument("Singular matrix, cannot invertible");
         }
-        Mat<B> Inv = full_like(mat, B{1} / mat(0, 0));
+        Mat<B> Inv = full<B, 2>({1, 1}, B{1} / mat(0, 0));
         return Inv;
     } else if (n == 2) {
         auto det_val = mat(0, 0) * mat(1, 1) - mat(0, 1) * mat(1, 0);
         if (det_val == B{0}) {
             throw std::invalid_argument("Singular matrix, cannot invertible");
         }
-        Mat<B> Inv {{mat(1, 1), -mat(0, 1)}, {-mat(1, 0), mat(0, 0)}};
+        Mat<B> Inv {{static_cast<B>(mat(1, 1)), static_cast<B>(-mat(0, 1))},
+                    {static_cast<B>(-mat(1, 0)), static_cast<B>(mat(0, 0))}};
         Inv /= det_val;
         return Inv;
     } else {
@@ -385,6 +386,37 @@ Mat<B> inv(const MatrixBase<Derived, A, 2>& mat) {
         throw std::invalid_argument("Not a square matrix, cannot invertible");
     }
     return inv_impl(mat);
+}
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+Mat<B> pow_impl(const MatrixBase<Derived, A, 2>& mat, int p) {
+    assert(p >= 1);
+    if (p == 1) {
+        return mat;
+    } else {
+        auto P = pow_impl(mat, p / 2);
+        if (p % 2) {
+            return dot(dot(P, P), mat);
+        } else {
+            return dot(P, P);
+        }
+    }
+}
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+Mat<B> pow(const MatrixBase<Derived, A, 2>& mat, int p) {
+    std::size_t n = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square matrix, cannot invertible");
+    }
+    if (p == 0) {
+        return identity<B>(n);
+    } else if (p < 0) {
+        return pow_impl(inv_impl(mat), -p);
+    } else {
+        return pow_impl(mat, p);
+    }
 }
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>

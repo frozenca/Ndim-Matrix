@@ -29,4 +29,8 @@ int main() {
     std::cout << Q << '\n';
     std::cout << R << '\n';
 
+    auto D_3 = fc::pow(D, 3);
+
+    std::cout << D_3 << '\n';
+
 }
