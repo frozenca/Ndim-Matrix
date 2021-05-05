@@ -9,6 +9,14 @@ namespace {
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
+void DotTo(T& m,
+           const MatrixView<U, 1>& m1,
+           const MatrixView<V, 1>& m2) {
+    m += std::inner_product(std::begin(m1), std::end(m1), std::begin(m2), T{0});
+}
+
+template <std::semiregular U, std::semiregular V, std::semiregular T>
+requires DotProductableTo<U, V, T>
 void DotTo(MatrixView<T, 1>& m,
            const MatrixView<U, 1>& m1,
            const MatrixView<V, 2>& m2) {
@@ -36,7 +44,22 @@ void DotTo(MatrixView<T, N2 - 1>& m,
 
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2>
-requires DotProductableTo<U, V, T>
+requires DotProductableTo<U, V, T> && (N1 > 1)
+void DotTo(MatrixView<T, N1 - 1>& m,
+           const MatrixView<U, N1>& m1,
+           const MatrixView<V, 1>& m2) {
+    assert(m.dims(0) == m1.dims(0));
+    std::size_t r = m.dims(0);
+    for (std::size_t i = 0; i < r; ++i) {
+        auto row0 = m.row(i);
+        auto row1 = m1.row(i);
+        DotTo(row0, row1, m2);
+    }
+}
+
+template <std::semiregular U, std::semiregular V, std::semiregular T,
+        std::size_t N1, std::size_t N2>
+requires DotProductableTo<U, V, T> && (N1 > 1) && (N2 > 1)
 void DotTo(MatrixView<T, N1 + N2 - 2>& m,
            const MatrixView<U, N1>& m1,
            const MatrixView<V, N2>& m2) {
