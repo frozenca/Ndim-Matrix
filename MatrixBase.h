@@ -159,9 +159,9 @@ public:
 
     friend std::ostream& operator<<(std::ostream& os, const MatrixBase& m) {
         os << '{';
-        for (std::size_t i = 0; i != m.dims(0); ++i) {
+        for (std::size_t i = 0; i != m.dims_[0]; ++i) {
             os << m[i];
-            if (i + 1 != m.dims(0)) {
+            if (i + 1 != m.dims_[0]) {
                 os << ", ";
             }
         }
@@ -192,6 +192,22 @@ public:
         for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
             *it -= static_cast<T>(*it2);
         }
+        return *this;
+    }
+
+    MatrixBase& swapRows(std::size_t i, std::size_t j) {
+        if (i >= dims(0) || j >= dims(0)) {
+            throw std::out_of_range("Out of range in swapRows");
+        }
+        std::ranges::swap_ranges(row(i), row(j));
+        return *this;
+    }
+
+    MatrixBase& swapCols(std::size_t i, std::size_t j) {
+        if (i >= dims(N - 1) || j >= dims(N - 1)) {
+            throw std::out_of_range("Out of range in swapCols");
+        }
+        std::ranges::swap_ranges(col(i), col(j));
         return *this;
     }
 
@@ -521,6 +537,19 @@ public:
         return *this;
     }
 
+    MatrixBase& swapRows(std::size_t i, std::size_t j) {
+        if (i >= dims_ || j >= dims_) {
+            throw std::out_of_range("Out of range in swapRows");
+        }
+        std::ranges::swap_ranges(row(i), row(j));
+        return *this;
+    }
+
+    MatrixBase& swapCols(std::size_t i, std::size_t j) {
+        swapRows(i, j);
+        return *this;
+    }
+
 };
 
 template <typename Derived, std::semiregular T>
@@ -590,7 +619,7 @@ MatrixBase<Derived, T, 1>& MatrixBase<Derived, T, 1>::applyFunctionWithBroadcast
         const frozenca::MatrixBase<DerivedOther2, V, 1>& m2,
         F&& f) {
     // real update is done here by passing lvalue reference T&
-    auto r = dims(0);
+    auto r = dims_;
     auto r1 = m1.dims(0);
     auto r2 = m2.dims(0);
 

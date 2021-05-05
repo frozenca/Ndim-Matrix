@@ -33,4 +33,9 @@ int main() {
 
     std::cout << D_3 << '\n';
 
+    A.swapRows(2, 3);
+
+    std::cout << A << '\n';
+
+
 }
