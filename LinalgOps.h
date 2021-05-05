@@ -391,6 +391,10 @@ template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires Real
 B norm(const MatrixBase<Derived, A, 1>& vec, std::size_t p = 2) {
     if (p == 0) {
         throw std::invalid_argument("Norm is undefined");
+    } else if (p == 1) {
+        return std::accumulate(std::begin(vec), std::end(vec), B{0}, [](B accu, A val) {
+            return accu + std::abs(val);
+        });
     }
     B pow_sum = std::accumulate(std::begin(vec), std::end(vec), B{0}, [&p](B accu, A val) {
         return accu + std::pow(val, p);
@@ -413,6 +417,44 @@ B norm(const MatrixBase<Derived, A, 2>& mat, std::size_t p = 2, std::size_t q = 
         pow_sum += std::pow(norm(mat.col(c), p), q);
     }
     return std::pow(pow_sum, 1.0f / static_cast<float>(q));
+}
+
+namespace {
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+Matrix<B, 2> getQ(const MatrixBase<Derived, A, 2>& V) {
+    std::size_t R = V.dims(0);
+    std::size_t C = V.dims(1);
+    Matrix<B, 2> Q = zeros_like(V);
+    auto curr_col = Q.col(0);
+    curr_col = V.col(0);
+    if (norm(curr_col, 1) == B{0}) {
+        return Q;
+    }
+    curr_col /= norm(curr_col);
+    for (std::size_t i = 1; i < C; ++i) {
+        curr_col = Q.col(i);
+        curr_col = V.col(i);
+        for (std::size_t j = 0; j < i; ++j) {
+            auto other_col = Q.col(j);
+            auto proj_val = dot(other_col, curr_col) / dot(other_col, other_col);
+            curr_col -= proj_val * other_col;
+        }
+        if (norm(curr_col, 1) == B{0}) {
+            return Q;
+        }
+        curr_col /= norm(curr_col);
+    }
+    return Q;
+}
+
+} // anonymous namespace
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+std::pair<Matrix<B, 2>, Matrix<B, 2>> QR(const MatrixBase<Derived, A, 2>& mat) {
+    auto Q = getQ(mat);
+    auto R = dot(transpose(Q), mat);
+    return {Q, R};
 }
 
 } // namespace frozenca

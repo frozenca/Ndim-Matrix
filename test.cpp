@@ -20,4 +20,13 @@ int main() {
 
     std::cout << fc::norm(C) << '\n';
 
+    fc::Mat<int> D {{12, -51, 4},
+                    {6, 167, -68},
+                    {-4, 24, -41}};
+
+    auto [Q, R] = fc::QR(D);
+
+    std::cout << Q << '\n';
+    std::cout << R << '\n';
+
 }
