@@ -2,7 +2,6 @@
 #define FROZENCA_LINALGOPS_H
 
 #include <bit>
-#include <limits>
 #include <ranges>
 #include "MatrixImpl.h"
 
@@ -350,6 +349,13 @@ Matrix<B, 2> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
             std::fill(std::begin(InvQ), std::end(InvQ), A{0});
             InvS = inv_impl(S);
             InvR = -dot(dot(InvS, R), InvP);
+        } else if (std::all_of(std::begin(R), std::end(R), [](const auto& r){return r == A{0};})) {
+            // [ P^-1  -P^-1QS^-1 ]
+            // [ 0           S^-1 ]
+            InvP = inv_impl(P);
+            std::fill(std::begin(InvR), std::end(InvR), A{0});
+            InvS = inv_impl(S);
+            InvQ = -dot(dot(InvP, Q), InvS);
         } else {
             // [ P^-1 + TUV    TU ]
             // [ UV            U  ]
