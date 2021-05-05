@@ -8,10 +8,34 @@ namespace frozenca {
 // Matrix constructs
 
 template <std::semiregular T, std::size_t N>
-Matrix<T, N> zeros(const std::array<std::size_t, N>& arr) {
+Matrix<T, N> empty(const std::array<std::size_t, N>& arr) {
     Matrix<T, N> mat (arr);
-    std::ranges::fill(mat, T{0});
     return mat;
+}
+
+template <typename Derived, std::semiregular T, std::size_t N>
+Matrix<T, N> empty_like(const MatrixBase<Derived, T, N>& base) {
+    Matrix<T, N> mat (base.dims());
+    return mat;
+}
+
+template <OneExists T>
+Matrix<T, 2> eye(std::size_t n, std::size_t m) {
+    Matrix<T, 2> mat (n, m);
+    for (std::size_t i = 0; i < std::min(n, m); ++i) {
+        mat(i, i) = T{1};
+    }
+    return mat;
+}
+
+template <OneExists T>
+Matrix<T, 2> eye(std::size_t n) {
+    return eye<T>(n, n);
+}
+
+template <OneExists T>
+Matrix<T, 2> identity(std::size_t n) {
+    return eye<T>(n, n);
 }
 
 template <OneExists T, std::size_t N>
@@ -21,28 +45,37 @@ Matrix<T, N> ones(const std::array<std::size_t, N>& arr) {
     return mat;
 }
 
-template <OneExists T>
-Matrix<T, 2> eyes(std::size_t n, std::size_t m) {
-    Matrix<T, 2> mat (n, m);
-    for (std::size_t i = 0; i < std::min(n, m); ++i) {
-        mat(i, i) = T{1};
-    }
+template <typename Derived, OneExists T, std::size_t N>
+Matrix<T, N> ones_like(const MatrixBase<Derived, T, N>& base) {
+    Matrix<T, N> mat (base.dims());
+    std::ranges::fill(mat, T{1});
     return mat;
 }
 
-template <OneExists T>
-Matrix<T, 2> eyes(std::size_t n) {
-    return eyes<T>(n, n);
+template <std::semiregular T, std::size_t N>
+Matrix<T, N> zeros(const std::array<std::size_t, N>& arr) {
+    Matrix<T, N> mat (arr);
+    std::ranges::fill(mat, T{0});
+    return mat;
 }
 
-template <OneExists T>
-Matrix<T, 2> identity(std::size_t n) {
-    return eyes<T>(n, n);
+template <typename Derived, std::semiregular T, std::size_t N>
+Matrix<T, N> zeros_like(const MatrixBase<Derived, T, N>& base) {
+    Matrix<T, N> mat (base.dims());
+    std::ranges::fill(mat, T{0});
+    return mat;
 }
 
 template <std::semiregular T, std::size_t N>
 Matrix<T, N> full(const std::array<std::size_t, N>& arr, const T& fill_value) {
     Matrix<T, N> mat (arr);
+    std::ranges::fill(mat, fill_value);
+    return mat;
+}
+
+template <typename Derived, std::semiregular T, std::size_t N>
+Matrix<T, N> full_like(const MatrixBase<Derived, T, N>& base, const T& fill_value) {
+    Matrix<T, N> mat (base.dims());
     std::ranges::fill(mat, fill_value);
     return mat;
 }
