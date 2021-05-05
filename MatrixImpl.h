@@ -101,8 +101,8 @@ public:
     template <std::semiregular T_, std::size_t M_, std::size_t N_>
     friend Matrix<T_, M_> reshaped(Matrix<T_, N_>&& orig, const std::array<std::size_t, M_>& new_dims) noexcept;
 
-    template <std::semiregular T_, std::size_t N_>
-    friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
+    template <typename Derived, std::semiregular T_, std::size_t N_>
+    friend Matrix<T_, N_> transpose(const MatrixBase<Derived, T_, N_>& orig, const std::array<std::size_t, N_>& perm);
 
     Matrix& operator-() {
         Base::Base::operator-();
@@ -243,8 +243,8 @@ public:
     template <std::semiregular T_, std::size_t M_, std::size_t N_>
     friend Matrix<T_, M_> reshaped(Matrix<T_, N_>&& orig, const std::array<std::size_t, M_>& new_dims) noexcept;
 
-    template <std::semiregular T_, std::size_t N_>
-    friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
+    template <typename Derived, std::semiregular T_, std::size_t N_>
+    friend Matrix<T_, N_> transpose(const MatrixBase<Derived, T_, N_>& orig, const std::array<std::size_t, N_>& perm);
 
     Matrix& operator-() {
         Base::Base::operator-();
@@ -300,8 +300,8 @@ Matrix<T, M> reshape(Matrix<T, N>&& orig, const std::array<std::size_t, M>& new_
     return reshaped(std::move(orig), new_dims);
 }
 
-template <std::semiregular T, std::size_t N>
-Matrix<T, N> transpose(const Matrix<T, N>& orig, const std::array<std::size_t, N>& perm) {
+template <typename Derived, std::semiregular T, std::size_t N>
+Matrix<T, N> transpose(const MatrixBase<Derived, T, N>& orig, const std::array<std::size_t, N>& perm) {
     std::array<std::size_t, N> identity_perm;
     std::iota(std::begin(identity_perm), std::end(identity_perm), 0lu);
     if (!std::ranges::is_permutation(identity_perm, perm)) {
@@ -320,11 +320,18 @@ Matrix<T, N> transpose(const Matrix<T, N>& orig, const std::array<std::size_t, N
     return transposed;
 }
 
-template <std::semiregular T, std::size_t N>
-Matrix<T, N> transpose(const Matrix<T, N>& orig) {
+template <typename Derived, std::semiregular T, std::size_t N>
+Matrix<T, N> transpose(const MatrixBase<Derived, T, N>& orig) {
     std::array<std::size_t, N> reversed_perm;
     std::iota(std::rbegin(reversed_perm), std::rend(reversed_perm), 0lu);
     return transpose(orig, reversed_perm);
+}
+
+template <typename Derived, std::semiregular T, std::semiregular U, std::size_t N> requires Multipliable<T, U>
+Matrix<T, N> operator* (const U& val, const MatrixBase<Derived, T, N>& orig) {
+    Matrix<T, N> mat (orig);
+    mat *= val;
+    return mat;
 }
 
 } // namespace frozenca

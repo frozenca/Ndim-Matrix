@@ -2,6 +2,7 @@
 #define FROZENCA_LINALGOPS_H
 
 #include <bit>
+#include <limits>
 #include <ranges>
 #include "MatrixImpl.h"
 
@@ -320,10 +321,10 @@ Matrix<B, 2> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
         Matrix<B, 2> Inv = full_like(mat, B{1} / mat(0, 0));
         return Inv;
     } else if (n == 2) {
-        if (mat(0, 0) == A{0} || mat(1, 1) == A{0}) {
+        auto det_val = mat(0, 0) * mat(1, 1) - mat(0, 1) * mat(1, 0);
+        if (det_val == B{0}) {
             throw std::invalid_argument("Singular matrix, cannot invertible");
         }
-        auto det_val = mat(0, 0) * mat(1, 1) - mat(0, 1) * mat(1, 0);
         Matrix<B, 2> Inv {{mat(1, 1), -mat(0, 1)}, {-mat(1, 0), mat(0, 0)}};
         Inv /= det_val;
         return Inv;
