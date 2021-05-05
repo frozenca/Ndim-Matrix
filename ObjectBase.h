@@ -97,6 +97,14 @@ public:
     ObjectBase& operator>>=(const U& val) {
         return applyFunction([&val](auto& v) {v >>= val;});
     }
+
+    ObjectBase& operator-() requires isScalar<typename Derived::value_type> {
+        return applyFunction([](auto& v) {v = -v;});
+    }
+
+    ObjectBase& conj() requires isScalar<typename Derived::value_type> {
+        return applyFunction([](auto& v) {v = std::conj(v);});
+    }
 };
 
 template <typename Derived>

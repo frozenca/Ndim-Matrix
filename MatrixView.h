@@ -238,6 +238,11 @@ public:
     template <std::semiregular T_, std::size_t N_>
     friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
 
+    MatrixView& operator-() {
+        Base::Base::operator-();
+        return *this;
+    }
+
 };
 
 template <std::semiregular T, std::size_t N>
@@ -260,8 +265,9 @@ MatrixView<T, N>::MatrixView(const MatrixBase<DerivedOther, U, N>& other) : Base
 template <std::semiregular T, std::size_t N>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, N>& MatrixView<T, N>::operator=(const MatrixBase<DerivedOther, U, N>& other) {
-    MatrixView<T, N> mat(other);
-    swap(*this, mat);
+    for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
+        *it = static_cast<T>(*it2);
+    }
     return *this;
 }
 
@@ -462,6 +468,11 @@ public:
     template <std::semiregular T_, std::size_t N_>
     friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
 
+    MatrixView& operator-() {
+        Base::Base::operator-();
+        return *this;
+    }
+
 };
 
 template <std::semiregular T>
@@ -483,8 +494,9 @@ MatrixView<T, 1>::MatrixView(const MatrixBase<DerivedOther, U, 1>& other) : Base
 template <std::semiregular T>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, 1>& MatrixView<T, 1>::operator=(const MatrixBase<DerivedOther, U, 1>& other) {
-    MatrixView<T, 1> mat(other);
-    swap(*this, mat);
+    for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
+        *it = static_cast<T>(*it2);
+    }
     return *this;
 }
 

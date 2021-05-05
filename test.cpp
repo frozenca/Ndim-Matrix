@@ -2,14 +2,16 @@
 #include <iostream>
 #include <numeric>
 
+namespace fc = frozenca;
+
 int main() {
-    frozenca::Matrix<float, 2> A {{4, 12, -16},
-                                  {12, 37, -43},
-                                  {-16, -43, 98}};
+    fc::Mat<float> A {{2, 0, 2, 0.6},
+                      {3, 3, 4, -2},
+                      {5, 5, 4, 2},
+                      {-1, -2, 3.4, -1}};
 
-    auto [L, L_] = frozenca::Cholesky(A);
+    auto B = fc::inv(A);
 
-    std::cout << L << '\n';
-    std::cout << L_ << '\n';
+    std::cout << B << '\n';
 
 }

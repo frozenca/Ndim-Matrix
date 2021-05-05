@@ -103,6 +103,11 @@ public:
 
     template <std::semiregular T_, std::size_t N_>
     friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
+
+    Matrix& operator-() {
+        Base::Base::operator-();
+        return *this;
+    }
 };
 
 template <std::semiregular T, std::size_t N>
@@ -241,6 +246,10 @@ public:
     template <std::semiregular T_, std::size_t N_>
     friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
 
+    Matrix& operator-() {
+        Base::Base::operator-();
+        return *this;
+    }
 };
 
 

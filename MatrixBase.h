@@ -175,6 +175,22 @@ public:
                                            const MatrixBase<DerivedOther2, V, N2>& m2,
                                            F&& f);
 
+    template <typename DerivedOther, std::semiregular U> requires Addable<T, U>
+    MatrixBase& operator+=(const MatrixBase<DerivedOther, U, N>& other) {
+        for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
+            *it += static_cast<T>(*it2);
+        }
+        return *this;
+    }
+
+    template <typename DerivedOther, std::semiregular U> requires Subtractable<T, U>
+    MatrixBase& operator-=(const MatrixBase<DerivedOther, U, N>& other) {
+        for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
+            *it -= static_cast<T>(*it2);
+        }
+        return *this;
+    }
+
 };
 
 template <typename Derived, std::semiregular T, std::size_t N>
@@ -378,6 +394,7 @@ public:
     using Base::operator*=;
     using Base::operator/=;
     using Base::operator%=;
+    using Base::operator-;
 
 protected:
     ~MatrixBase() noexcept = default;
@@ -482,6 +499,22 @@ public:
     MatrixBase& applyFunctionWithBroadcast(const frozenca::MatrixBase<DerivedOther1, U, 1>& m1,
                                            const frozenca::MatrixBase<DerivedOther2, V, 1>& m2,
                                            F&& f);
+
+    template <typename DerivedOther, std::semiregular U> requires Addable<T, U>
+    MatrixBase& operator+=(const MatrixBase<DerivedOther, U, 1>& other) {
+        for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
+            *it += static_cast<T>(*it2);
+        }
+        return *this;
+    }
+
+    template <typename DerivedOther, std::semiregular U> requires Subtractable<T, U>
+    MatrixBase& operator-=(const MatrixBase<DerivedOther, U, 1>& other) {
+        for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
+            *it -= static_cast<T>(*it2);
+        }
+        return *this;
+    }
 
 };
 

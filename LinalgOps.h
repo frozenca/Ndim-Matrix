@@ -1,6 +1,8 @@
 #ifndef FROZENCA_LINALGOPS_H
 #define FROZENCA_LINALGOPS_H
 
+#include <bit>
+#include <ranges>
 #include "MatrixImpl.h"
 
 namespace frozenca {
@@ -178,7 +180,7 @@ std::tuple<std::vector<std::size_t>, Matrix<B, 2>, Matrix<B, 2>> LUP(const Matri
     std::iota(std::begin(P), std::end(P), 0lu);
 
     Matrix<B, 2> A_ = mat;
-    Matrix<B, 2> U = zeros<B, 2>({n, n});
+    Matrix<B, 2> U = zeros_like(A_);
     Matrix<B, 2> L = identity<B>(n);
 
     for (std::size_t k = 0; k < n; ++k) {
@@ -221,20 +223,23 @@ std::tuple<std::vector<std::size_t>, Matrix<B, 2>, Matrix<B, 2>> LUP(const Matri
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
 std::pair<Matrix<B, 2>, Matrix<B, 2>> Cholesky(const MatrixBase<Derived, A, 2>& mat) {
-
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
     if (n != C) {
         throw std::invalid_argument("Not a square matrix, cannot do Cholesky decomposition");
     }
     Matrix<B, 2> A_ = mat;
-    Matrix<B, 2> L = zeros<B, 2>({n, n});
+    Matrix<B, 2> L = zeros_like(A_);
 
     for (std::size_t i = 0; i < n; ++i) {
         for (std::size_t j = 0; j < i + 1; ++j) {
             A sum {0};
             for (std::size_t k = 0; k < j; ++k) {
-                sum += L(i, k) * L(j, k);
+                if constexpr (isComplex<A>) {
+                    sum += L(i, k) * conj(L(j, k));
+                } else {
+                    sum += L(i, k) * L(j, k);
+                }
             }
 
             if (i == j) {
@@ -245,7 +250,134 @@ std::pair<Matrix<B, 2>, Matrix<B, 2>> Cholesky(const MatrixBase<Derived, A, 2>& 
         }
     }
     auto L_ = transpose(L);
+    if constexpr (isComplex<A>) {
+        L_.conj();
+    }
     return {L, L_};
+}
+
+template <typename Derived, isScalar A>
+bool isLowerTriangular(const MatrixBase<Derived, A, 2>& mat) {
+    std::size_t R = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    for (std::size_t i = 0; i < R; ++i) {
+        for (std::size_t j = i + 1; j < C; ++j) {
+            if (mat(i, j) != A{0}) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+template <typename Derived, isScalar A>
+bool isUpperTriangular(const MatrixBase<Derived, A, 2>& mat) {
+    std::size_t R = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    for (std::size_t i = 0; i < R; ++i) {
+        for (std::size_t j = 0; j < std::min(i, C); ++j) {
+            if (mat(i, j) != A{0}) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+template <typename Derived, isScalar A>
+bool isTriangular(const MatrixBase<Derived, A, 2>& mat) {
+    return isLowerTriangular(mat) || isUpperTriangular(mat);
+}
+
+template <typename Derived, isScalar A>
+A det(const MatrixBase<Derived, A, 2>& mat) {
+    std::size_t n = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square matrix, cannot compute determinant");
+    }
+
+    if (isTriangular(mat)) {
+        A det_val {1};
+        for (std::size_t i = 0; i < n; ++i) {
+            det_val *= mat(i, i);
+        }
+        return det_val;
+    }
+    auto [P, L, U] = LUP(mat);
+    return det(L) * det(U);
+}
+
+namespace {
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+Matrix<B, 2> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
+    std::size_t n = mat.dims(0);
+    if (n == 1) {
+        if (mat(0, 0) == A{0}) {
+            throw std::invalid_argument("Singular matrix, cannot invertible");
+        }
+        Matrix<B, 2> Inv = full_like(mat, B{1} / mat(0, 0));
+        return Inv;
+    } else if (n == 2) {
+        if (mat(0, 0) == A{0} || mat(1, 1) == A{0}) {
+            throw std::invalid_argument("Singular matrix, cannot invertible");
+        }
+        auto det_val = mat(0, 0) * mat(1, 1) - mat(0, 1) * mat(1, 0);
+        Matrix<B, 2> Inv {{mat(1, 1), -mat(0, 1)}, {-mat(1, 0), mat(0, 0)}};
+        Inv /= det_val;
+        return Inv;
+    } else {
+        auto half = std::bit_floor(n);
+        if (std::has_single_bit(n)) {
+            half >>= 1;
+        }
+        auto P = mat.submatrix({0, 0}, {half, half});
+        auto Q = mat.submatrix({0, half}, {half, n});
+        auto R = mat.submatrix({half, 0}, {n, half});
+        auto S = mat.submatrix({half, half}, {n, n});
+
+        Matrix<B, 2> Inv = empty_like(mat);
+        auto InvP = Inv.submatrix({0, 0}, {half, half});
+        auto InvQ = Inv.submatrix({0, half}, {half, n});
+        auto InvR = Inv.submatrix({half, 0}, {n, half});
+        auto InvS = Inv.submatrix({half, half}, {n, n});
+        if (std::all_of(std::begin(Q), std::end(Q), [](const auto& q){return q == A{0};})) {
+            // [ P^-1          0    ]
+            // [ -S^-1RP^-1    S^-1 ]
+            InvP = inv_impl(P);
+            std::fill(std::begin(InvQ), std::end(InvQ), A{0});
+            InvS = inv_impl(S);
+            InvR = -dot(dot(InvS, R), InvP);
+        } else {
+            // [ P^-1 + TUV    TU ]
+            // [ UV            U  ]
+            // T = -P^-1Q
+            // V = -RP^-1
+            // InvS = U = (S + VQ)^-1
+
+            InvP = inv_impl(P);
+            auto T = -dot(InvP, Q);
+            auto V = -dot(R, InvP);
+            InvS = inv_impl(S + dot(V, Q));
+            InvQ = dot(T, InvS);
+            InvR = dot(InvS, V);
+            InvP += dot(T, InvR);
+        }
+        return Inv;
+    }
+}
+
+} // anonymous namespace
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+Matrix<B, 2> inv(const MatrixBase<Derived, A, 2>& mat) {
+    std::size_t n = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square matrix, cannot invertible");
+    }
+    return inv_impl(mat);
 }
 
 } // namespace frozenca

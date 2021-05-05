@@ -19,6 +19,12 @@ namespace frozenca {
 template <std::semiregular T, std::size_t N>
 class Matrix;
 
+template <std::semiregular T>
+using Mat = Matrix<T, 2>;
+
+template <std::semiregular T>
+using Vec = Matrix<T, 1>;
+
 template <std::semiregular T, std::size_t N>
 class MatrixView;
 
@@ -186,7 +192,10 @@ concept isComplex = std::is_same_v<T, std::complex<float>>
 || std::is_same_v<T, std::complex<long double>>;
 
 template <typename T>
-concept isScalar = std::integral<T> || std::floating_point<T> || isComplex<T>;
+concept isReal = std::integral<T> || std::floating_point<T>;
+
+template <typename T>
+concept isScalar = isReal<T> || isComplex<T>;
 
 template <typename T>
 struct RealType;
