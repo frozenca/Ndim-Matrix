@@ -3,7 +3,6 @@
 
 #include "MatrixImpl.h"
 #include "MatrixOps.h"
-
-
+#include "LinalgOps.h"
 
 #endif //FROZENCA_MATRIX_H

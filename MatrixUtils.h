@@ -158,6 +158,27 @@ inline decltype(auto) Modulus(A a, B b) {
     return a % b;
 }
 
+template <typename A, typename B>
+using AddType = std::invoke_result_t<decltype(Plus<A, B>), A, B>;
+
+template <typename A, typename B>
+using SubType = std::invoke_result_t<decltype(Minus<A, B>), A, B>;
+
+template <typename A, typename B>
+using MulType = std::invoke_result_t<decltype(Multiplies<A, B>), A, B>;
+
+template <typename A, typename B>
+using DivType = std::invoke_result_t<decltype(Divides<A, B>), A, B>;
+
+template <typename A, typename B>
+using ModType = std::invoke_result_t<decltype(Modulus<A, B>), A, B>;
+
+template <typename A, typename B>
+concept DotProductable = Addable<MulType<A, B>, MulType<A, B>>;
+
+template <typename A, typename B, typename C>
+concept DotProductableTo = DotProductable<A, B> && MultipliableTo<A, B, C> && Addable<C, C>;
+
 template <typename A, typename B, typename C> requires AddableTo<A, B, C>
 inline void PlusTo(C& c, const A& a, const B& b) {
     c = a + b;
@@ -229,6 +250,30 @@ std::array<std::size_t, std::max(M, N)> bidirBroadcastedDims(const std::array<st
         static_assert(M > N);
         return bidirBroadcastedDims(sz1, prependDims<M, N>(sz2));
     }
+}
+
+template <std::size_t M> requires (M > 1)
+std::array<std::size_t, M - 1> dotDims(const std::array<std::size_t, M>& sz1,
+                                       const std::array<std::size_t, 1>& sz2) {
+    if (sz1[M - 1] != sz2[0]) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    std::array<std::size_t, M - 1> sz;
+    std::copy(std::begin(sz1), std::begin(sz1) + (M - 1), std::begin(sz));
+    return sz;
+}
+
+template <std::size_t M, std::size_t N> requires (N > 1)
+std::array<std::size_t, M + N - 2> dotDims(const std::array<std::size_t, M>& sz1,
+                                           const std::array<std::size_t, N>& sz2) {
+    if (sz1[M - 1] != sz2[N - 2]) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    std::array<std::size_t, M + N - 2> sz;
+    std::copy(std::begin(sz1), std::begin(sz1) + (M - 1), std::begin(sz));
+    std::copy(std::begin(sz2), std::begin(sz2) + (N - 2), std::begin(sz) + (M - 1));
+    std::copy(std::begin(sz2) + (N - 1), std::end(sz2), std::begin(sz) + (M + N - 3));
+    return sz;
 }
 
 template <typename... Args>

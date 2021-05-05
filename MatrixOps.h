@@ -153,9 +153,9 @@ void ModuloTo(MatrixView<T, N>& m,
 
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
-        std::size_t N1, std::size_t N2> requires WeakAddable<U, V>
+        std::size_t N1, std::size_t N2,
+        std::semiregular T = AddType<U, V>> requires AddableTo<U, V, T>
 decltype(auto) operator+ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
-    using T = std::invoke_result_t<decltype(Plus<U, V>), U, V>;
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
@@ -165,9 +165,9 @@ decltype(auto) operator+ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
 
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
-        std::size_t N1, std::size_t N2> requires WeakSubtractable<U, V>
+        std::size_t N1, std::size_t N2,
+        std::semiregular T = SubType<U, V>> requires SubtractableTo<U, V, T>
 decltype(auto) operator- (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
-    using T = std::invoke_result_t<decltype(Minus<U, V>), U, V>;
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
@@ -177,9 +177,9 @@ decltype(auto) operator- (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
 
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
-        std::size_t N1, std::size_t N2> requires WeakMultipliable<U, V>
+        std::size_t N1, std::size_t N2,
+        std::semiregular T = MulType<U, V>> requires MultipliableTo<U, V, T>
 decltype(auto) operator* (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
-    using T = std::invoke_result_t<decltype(Multiplies<U, V>), U, V>;
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
@@ -189,9 +189,9 @@ decltype(auto) operator* (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
 
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
-        std::size_t N1, std::size_t N2> requires WeakDividable<U, V>
+        std::size_t N1, std::size_t N2,
+        std::semiregular T = DivType<U, V>> requires DividableTo<U, V, T>
 decltype(auto) operator/ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
-    using T = std::invoke_result_t<decltype(Divides<U, V>), U, V>;
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
@@ -201,9 +201,9 @@ decltype(auto) operator/ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
 
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
-        std::size_t N1, std::size_t N2> requires WeakRemaindable<U, V>
+        std::size_t N1, std::size_t N2,
+        std::semiregular T = ModType<U, V>> requires RemaindableTo<U, V, T>
 decltype(auto) operator% (const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
-    using T = std::invoke_result_t<decltype(Modulus<U, V>), U, V>;
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
