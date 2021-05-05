@@ -150,7 +150,6 @@ private:
     std::unique_ptr<T[]> data_;
 
 public:
-    Matrix() = default;
     using Base = MatrixBase<Matrix<T, 1>, T, 1>;
     using Base::dims;
     using Base::strides;

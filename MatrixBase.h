@@ -17,12 +17,11 @@ public:
     static constexpr std::size_t ndim = N;
 
 private:
-    std::array<std::size_t, N> dims_ = {0};
-    std::size_t size_ = 0;
-    std::array<std::size_t, N> strides_ = {0};
+    std::array<std::size_t, N> dims_;
+    std::size_t size_;
+    std::array<std::size_t, N> strides_;
 
 public:
-    MatrixBase() = default;
     using Base = ObjectBase<MatrixBase<Derived, T, N>>;
     using Base::applyFunction;
     using Base::operator=;
