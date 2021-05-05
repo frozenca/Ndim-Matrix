@@ -181,12 +181,6 @@ std::tuple<std::vector<std::size_t>, Matrix<B, 2>, Matrix<B, 2>> LUP(const Matri
     Matrix<B, 2> U = zeros<B, 2>({n, n});
     Matrix<B, 2> L = identity<B>(n);
 
-    for (std::size_t i = 0; i < n; ++i) {
-        for (std::size_t j = 0; j < i; ++j) {
-            U(i, j) = 0;
-        }
-    }
-
     for (std::size_t k = 0; k < n; ++k) {
         A p {0};
         std::size_t k_ = -1;
@@ -223,6 +217,35 @@ std::tuple<std::vector<std::size_t>, Matrix<B, 2>, Matrix<B, 2>> LUP(const Matri
     }
 
     return {P, L, U};
+}
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+std::pair<Matrix<B, 2>, Matrix<B, 2>> Cholesky(const MatrixBase<Derived, A, 2>& mat) {
+
+    std::size_t n = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square matrix, cannot do Cholesky decomposition");
+    }
+    Matrix<B, 2> A_ = mat;
+    Matrix<B, 2> L = zeros<B, 2>({n, n});
+
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < i + 1; ++j) {
+            A sum {0};
+            for (std::size_t k = 0; k < j; ++k) {
+                sum += L(i, k) * L(j, k);
+            }
+
+            if (i == j) {
+                L(i, j) = std::sqrt(A_(i, i) - sum);
+            } else {
+                L(i, j) = ((A{1.0} / L(j, j)) * (A_(i, j) - sum));
+            }
+        }
+    }
+    auto L_ = transpose(L);
+    return {L, L_};
 }
 
 } // namespace frozenca

@@ -3,20 +3,13 @@
 #include <numeric>
 
 int main() {
-    frozenca::Matrix<float, 2> A {{2, 0, 2, 0.6},
-                                  {3, 3, 4, -2},
-                                  {5, 5, 4, 2},
-                                  {-1, -2, 3.4, -1}};
+    frozenca::Matrix<float, 2> A {{4, 12, -16},
+                                  {12, 37, -43},
+                                  {-16, -43, 98}};
 
-    auto [P, L, U] = frozenca::LUP(A);
-    for (auto p : P) {
-        std::cout << p << ' ';
-    }
-    std::cout << '\n';
+    auto [L, L_] = frozenca::Cholesky(A);
 
     std::cout << L << '\n';
-    std::cout << U << '\n';
-
-
+    std::cout << L_ << '\n';
 
 }
