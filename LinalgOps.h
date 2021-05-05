@@ -85,6 +85,19 @@ void DotTo(MatrixBase<Derived0, T, (N1 + N2 - 2)>& m,
     DotTo(m_view, m1_view, m2_view);
 }
 
+template <std::semiregular U, std::semiregular V, std::semiregular T,
+        std::size_t N1, std::size_t N2, std::size_t N>
+requires DotProductableTo<U, V, T> && (std::max(N1, N2) == N)
+void MatmulTo(MatrixView<T, N>& m,
+           const MatrixView<U, N1>& m1,
+           const MatrixView<V, N2>& m2) {
+    if constexpr (N == 2) {
+        DotTo(m, m1, m2);
+    } else {
+        m.applyFunctionWithBroadcast(m1, m2, MatmulTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
+}
+
 } // anonymous namespace
 
 template <typename Derived1, typename Derived2,
@@ -95,6 +108,28 @@ decltype(auto) dot(const MatrixBase<Derived1, U, M>& m1, const MatrixBase<Derive
     auto dims = dotDims(m1.dims(), m2.dims());
     Matrix<T, (M + N - 2)> res = zeros<T, (M + N - 2)>(dims);
     DotTo(res, m1, m2);
+    return res;
+}
+
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
+decltype(auto) dot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derived2, V, 1>& m2) {
+    auto dims = dotDims(m1.dims(), m2.dims());
+    T res {0};
+    DotTo(res, m1, m2);
+    return res;
+}
+
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::size_t N1, std::size_t N2,
+        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
+decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
+    constexpr std::size_t N = std::max(N1, N2);
+    auto dims = matmulDims(m1.dims(), m2.dims());
+    Matrix<T, N> res = zeros<T, N>(dims);
+    res.applyFunctionWithBroadcast(m1, m2, MatmulTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     return res;
 }
 

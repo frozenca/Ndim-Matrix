@@ -276,6 +276,49 @@ std::array<std::size_t, M + N - 2> dotDims(const std::array<std::size_t, M>& sz1
     return sz;
 }
 
+template <std::size_t M, std::size_t N>
+std::array<std::size_t, std::max(M, N)> matmulDims(const std::array<std::size_t, M>& sz1,
+                                                   const std::array<std::size_t, N>& sz2) {
+    if constexpr (M == 1) {
+        std::array<std::size_t, 2> sz1_ = {1, sz1[0]};
+        return matmulDims(sz1_, sz2);
+    } else if constexpr (N == 1) {
+        std::array<std::size_t, 2> sz2_ = {sz2[0], 1};
+        return matmulDims(sz1, sz2_);
+    }
+    assert(M >= 2 && N >= 2);
+    if (sz1[M - 1] != sz2[N - 2]) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    std::array<std::size_t, 2> last_sz = {sz1[M - 2], sz2[N - 1]};
+    if constexpr (M == 2) {
+        if constexpr (N == 2) {
+            return last_sz;
+        } else { // M = 2, N > 2
+            std::array<std::size_t, N> res_sz;
+            std::copy(std::begin(sz2), std::begin(sz2) + (N - 2), std::begin(res_sz));
+            std::copy(std::begin(last_sz), std::end(last_sz), std::begin(res_sz) + (N - 2));
+            return res_sz;
+        }
+    } else if constexpr (N == 2) { // M > 2, N = 2
+        std::array<std::size_t, M> res_sz;
+        std::copy(std::begin(sz1), std::begin(sz2) + (M - 2), std::begin(res_sz));
+        std::copy(std::begin(last_sz), std::end(last_sz), std::begin(res_sz) + (M - 2));
+        return res_sz;
+    } else { // M > 2, N > 2
+        std::array<std::size_t, std::max(M, N)> res_sz;
+        std::array<std::size_t, M - 2> sz1_front;
+        std::array<std::size_t, N - 2> sz2_front;
+        std::copy(std::begin(sz1), std::begin(sz1) + (M - 2), std::begin(sz1_front));
+        std::copy(std::begin(sz2), std::begin(sz2) + (N - 2), std::begin(sz2_front));
+        auto common_sz = bidirBroadcastedDims(sz1_front, sz2_front);
+        std::copy(std::begin(common_sz), std::end(common_sz), std::begin(res_sz));
+        std::copy(std::begin(last_sz), std::end(last_sz), std::end(res_sz) - 2);
+        return res_sz;
+    }
+
+}
+
 template <typename... Args>
 concept IndexType = All(std::is_integral_v<Args>...);
 

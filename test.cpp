@@ -9,6 +9,8 @@ int main() {
     std::iota(std::begin(B), std::end(B), 0);
     auto C = frozenca::dot(A, B);
     std::cout << C << '\n';
+    auto D = frozenca::matmul(A, B);
+    std::cout << D << '\n';
 
 
 }
