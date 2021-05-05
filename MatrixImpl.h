@@ -64,8 +64,19 @@ public:
     Matrix(const std::array<std::size_t, N>& dims);
 
 private:
-    Matrix(const std::array<std::size_t, N>& dims, std::unique_ptr<T[]> buffer)
+    // only invoked by reshape
+    Matrix(const std::array<std::size_t, N>& dims, std::unique_ptr<T[]> buffer) noexcept
     : Base(dims), data_(std::move(buffer)) {}
+
+    // only invoked by transpose
+    Matrix(const std::array<std::size_t, N>& new_dims, const MatrixView<T, N>& view) noexcept
+            : Base(new_dims), data_(std::make_unique<T[]>(size())) {
+        std::size_t index = 0;
+        for (auto it = std::cbegin(view); it != std::cend(view); ++it) {
+            data_[index] = static_cast<T>(*it);
+            index++;
+        }
+    }
 
 public:
     template <IndexType... Dims>
@@ -86,7 +97,10 @@ public:
     }
 
     template <std::semiregular T_, std::size_t M_, std::size_t N_>
-    friend Matrix<T_, M_> reshape(Matrix<T_, N_>&& orig, const std::array<std::size_t, M_>& new_dims);
+    friend Matrix<T_, M_> reshaped(Matrix<T_, N_>&& orig, const std::array<std::size_t, M_>& new_dims) noexcept;
+
+    template <std::semiregular T_, std::size_t N_>
+    friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
 };
 
 template <std::semiregular T, std::size_t N>
@@ -190,8 +204,19 @@ public:
     Matrix(const std::array<std::size_t, 1>& dims) : Base(dims[0]), data_(std::make_unique<T[]>(dims[0])) {}
 
 private:
-    Matrix(const std::array<std::size_t, 1>& dims, std::unique_ptr<T[]> buffer)
+    // only invoked by reshape
+    Matrix(const std::array<std::size_t, 1>& dims, std::unique_ptr<T[]> buffer) noexcept
             : Base(dims), data_(std::move(buffer)) {}
+
+    // only invoked by transpose
+    Matrix(const std::array<std::size_t, 1>& new_dims, const MatrixView<T, 1>& view) noexcept
+            : Base(new_dims), data_(std::make_unique<T[]>(dims(0))) {
+        std::size_t index = 0;
+        for (auto it = std::cbegin(view); it != std::cend(view); ++it) {
+            data_[index] = static_cast<T>(*it);
+            index++;
+        }
+    }
 
 public:
     template <typename Dim> requires std::is_integral_v<Dim>
@@ -207,7 +232,11 @@ public:
     Matrix& operator=(const MatrixBase<DerivedOther, U, 1>& other);
 
     template <std::semiregular T_, std::size_t M_, std::size_t N_>
-    friend Matrix<T_, M_> reshape(Matrix<T_, N_>&& orig, const std::array<std::size_t, M_>& new_dims);
+    friend Matrix<T_, M_> reshaped(Matrix<T_, N_>&& orig, const std::array<std::size_t, M_>& new_dims) noexcept;
+
+    template <std::semiregular T_, std::size_t N_>
+    friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
+
 };
 
 
@@ -244,13 +273,45 @@ Matrix<T, 1>& Matrix<T, 1>::operator=(const MatrixBase<DerivedOther, U, 1>& othe
 }
 
 template <std::semiregular T, std::size_t M, std::size_t N>
+Matrix<T, M> reshaped(Matrix<T, N>&& orig, const std::array<std::size_t, M>& new_dims) noexcept {
+    Matrix<T, M> new_mat(new_dims, std::move(orig.data_));
+    return new_mat;
+}
+
+template <std::semiregular T, std::size_t M, std::size_t N>
 Matrix<T, M> reshape(Matrix<T, N>&& orig, const std::array<std::size_t, M>& new_dims) {
     auto new_size = std::accumulate(std::begin(new_dims), std::end(new_dims), 1lu, std::multiplies<>{});
     if (new_size != orig.size()) {
         throw std::invalid_argument("Cannot reshape, size is different");
     }
-    Matrix<T, M> new_mat (new_dims, std::move(orig.data_));
-    return new_mat;
+    return reshaped(std::move(orig), new_dims);
+}
+
+template <std::semiregular T, std::size_t N>
+Matrix<T, N> transpose(const Matrix<T, N>& orig, const std::array<std::size_t, N>& perm) {
+    std::array<std::size_t, N> identity_perm;
+    std::iota(std::begin(identity_perm), std::end(identity_perm), 0lu);
+    if (!std::ranges::is_permutation(identity_perm, perm)) {
+        throw std::invalid_argument("Invalid permutation");
+    }
+
+    std::array<std::size_t, N> trans_dims;
+    std::array<std::size_t, N> trans_strides;
+    for (std::size_t i = 0; i < N; ++i) {
+        trans_dims[i] = orig.dims(perm[i]);
+        trans_strides[i] = orig.strides(perm[i]);
+    }
+    std::array<std::size_t, N> pos_begin = {0};
+    MatrixView<T, N> trans_view (trans_dims, const_cast<T*>(&orig.operator[](pos_begin)), trans_strides);
+    Matrix<T, N> transposed(trans_dims, trans_view);
+    return transposed;
+}
+
+template <std::semiregular T, std::size_t N>
+Matrix<T, N> transpose(const Matrix<T, N>& orig) {
+    std::array<std::size_t, N> reversed_perm;
+    std::iota(std::rbegin(reversed_perm), std::rend(reversed_perm), 0lu);
+    return transpose(orig, reversed_perm);
 }
 
 } // namespace frozenca

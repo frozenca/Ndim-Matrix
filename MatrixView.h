@@ -196,7 +196,7 @@ public:
     // oh no.. *why* defining operator<=> doesn't work to automatically define these in gcc?
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
     friend bool operator==(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
-        return it1.offset_ == it2.offset_;
+        return it1.pos_ == it2.pos_;
     }
 
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
@@ -206,7 +206,7 @@ public:
 
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
     friend auto operator<=>(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
-        return it1.offset_ <=> it2.offset_;
+        return it1.pos_ <=> it2.pos_;
     }
 
     using iterator = MVIterator<T>;
@@ -234,6 +234,9 @@ public:
     [[nodiscard]] const std::array<std::size_t, N>& origStrides() const {
         return orig_strides_;
     }
+
+    template <std::semiregular T_, std::size_t N_>
+    friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
 
 };
 
@@ -417,7 +420,7 @@ public:
     // oh no.. *why* defining operator<=> doesn't work to automatically define these in gcc?
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
     friend bool operator==(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
-        return it1.offset_ == it2.offset_;
+        return it1.pos_ == it2.pos_;
     }
 
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
@@ -427,7 +430,7 @@ public:
 
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
     friend auto operator<=>(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
-        return it1.offset_ <=> it2.offset_;
+        return it1.pos_ <=> it2.pos_;
     }
 
     using iterator = MVIterator<T>;
@@ -455,6 +458,9 @@ public:
     [[nodiscard]] std::size_t origStrides() const {
         return orig_strides_;
     }
+
+    template <std::semiregular T_, std::size_t N_>
+    friend Matrix<T_, N_> transpose(const Matrix<T_, N_>& orig, const std::array<std::size_t, N_>& perm);
 
 };
 
