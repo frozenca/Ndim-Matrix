@@ -387,6 +387,34 @@ Matrix<B, 2> inv(const MatrixBase<Derived, A, 2>& mat) {
     return inv_impl(mat);
 }
 
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+B norm(const MatrixBase<Derived, A, 1>& vec, std::size_t p = 2) {
+    if (p == 0) {
+        throw std::invalid_argument("Norm is undefined");
+    }
+    B pow_sum = std::accumulate(std::begin(vec), std::end(vec), B{0}, [&p](B accu, A val) {
+        return accu + std::pow(val, p);
+    });
+    return std::pow(pow_sum, 1.0f / static_cast<float>(p));
+}
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+B norm(const MatrixBase<Derived, A, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
+    if (p == 2 && q == 2) { // Frobenius norm
+        B pow_sum = std::accumulate(std::begin(mat), std::end(mat), B{0}, [](B accu, A val) {
+            return accu + std::pow(val, 2.0);
+        });
+        return std::sqrt(pow_sum);
+    }
+    std::size_t R = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    B pow_sum {0};
+    for (std::size_t c = 0; c < C; ++c) {
+        pow_sum += std::pow(norm(mat.col(c), p), q);
+    }
+    return std::pow(pow_sum, 1.0f / static_cast<float>(q));
+}
+
 } // namespace frozenca
 
 #endif //FROZENCA_LINALGOPS_H
