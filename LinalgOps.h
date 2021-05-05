@@ -1,7 +1,7 @@
 #ifndef FROZENCA_LINALGOPS_H
 #define FROZENCA_LINALGOPS_H
 
-#include "Matrix.h"
+#include "MatrixImpl.h"
 
 namespace frozenca {
 
@@ -129,7 +129,22 @@ decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<De
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = matmulDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyFunctionWithBroadcast(m1, m2, MatmulTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    MatrixView<U, std::max(N1, 2lu)> m1_view;
+    if constexpr (N1 == 1) {
+        m1_view = MatrixView<U, 2>({1, m1.dims[0]}, m1.dataView(), {m1.dims[0], 1});
+    } else {
+        m1_view = MatrixView<U, N1>(m1);
+    }
+    MatrixView<V, std::max(N2, 2lu)> m2_view;
+    if constexpr (N2 == 1) {
+        m2_view = MatrixView<V, 2>({m2.dims[0], 1}, m2.dataView(), {1, 1});
+    } else {
+        m2_view = MatrixView<V, N2>(m2);
+    }
+    // doesn't compile
+    res.applyFunctionWithBroadcast(m1_view, m2_view, MatmulTo<U, V, T,
+        std::min(std::max(N1, 2lu), N - 1),
+        std::min(std::max(N2, 2lu), N - 1), N - 1>);
     return res;
 }
 

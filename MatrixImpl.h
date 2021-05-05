@@ -43,6 +43,8 @@ public:
     const_reverse_iterator rend() const { return std::make_reverse_iterator(begin()); }
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
 
+    const T* dataView() const { return data_.get(); }
+
     ~Matrix() noexcept = default;
     Matrix(const Matrix& other) : Base(other.dims()), data_(std::make_unique<T[]>(size())) {
         std::size_t index = 0;
@@ -148,6 +150,7 @@ private:
     std::unique_ptr<T[]> data_;
 
 public:
+    Matrix() = default;
     using Base = MatrixBase<Matrix<T, 1>, T, 1>;
     using Base::dims;
     using Base::strides;
@@ -182,6 +185,8 @@ public:
     reverse_iterator rend() { return std::make_reverse_iterator(begin());}
     const_reverse_iterator rend() const { return std::make_reverse_iterator(begin()); }
     const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
+
+    const T* dataView() const { return data_.get(); }
 
     ~Matrix() noexcept = default;
     Matrix(const Matrix& other) : Base(other.dims(0)), data_(std::make_unique<T[]>(dims(0))) {
@@ -302,7 +307,7 @@ Matrix<T, N> transpose(const Matrix<T, N>& orig, const std::array<std::size_t, N
         trans_strides[i] = orig.strides(perm[i]);
     }
     std::array<std::size_t, N> pos_begin = {0};
-    MatrixView<T, N> trans_view (trans_dims, const_cast<T*>(&orig.operator[](pos_begin)), trans_strides);
+    MatrixView<T, N> trans_view (trans_dims, const_cast<T*>(orig.dataView()), trans_strides);
     Matrix<T, N> transposed(trans_dims, trans_view);
     return transposed;
 }

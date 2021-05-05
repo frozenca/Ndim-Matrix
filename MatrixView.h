@@ -9,10 +9,11 @@ namespace frozenca {
 template <std::semiregular T, std::size_t N>
 class MatrixView final : public MatrixBase<MatrixView<T, N>, T, N> {
 private:
-    T* data_view_;
-    std::array<std::size_t, N> orig_strides_;
+    T* data_view_ = nullptr;
+    std::array<std::size_t, N> orig_strides_ = {0};
 
 public:
+    MatrixView() = default;
     using Base = MatrixBase<MatrixView<T, N>, T, N>;
     using Base::size;
     using Base::dims;
