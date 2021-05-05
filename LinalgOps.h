@@ -85,6 +85,17 @@ void DotTo(MatrixBase<Derived0, T, (N1 + N2 - 2)>& m,
     DotTo(m_view, m1_view, m2_view);
 }
 
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V, std::semiregular T>
+requires DotProductableTo<U, V, T>
+void DotTo(T& m,
+           const MatrixBase<Derived1, U, 1>& m1,
+           const MatrixBase<Derived2, V, 1>& m2) {
+    MatrixView<U, 1> m1_view (m1);
+    MatrixView<V, 1> m2_view (m2);
+    DotTo(m, m1_view, m2_view);
+}
+
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires DotProductableTo<U, V, T> && (std::max(N1, N2) == N)
@@ -115,7 +126,9 @@ template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
         std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
 decltype(auto) dot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derived2, V, 1>& m2) {
-    auto dims = dotDims(m1.dims(), m2.dims());
+    if (m1.dims(0) != m2.dims(0)) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
     T res {0};
     DotTo(res, m1, m2);
     return res;
@@ -126,26 +139,30 @@ template <typename Derived1, typename Derived2,
         std::size_t N1, std::size_t N2,
         std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
 decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
-    constexpr std::size_t N = std::max(N1, N2);
+    constexpr std::size_t N = std::max({N1, N2, 2lu});
     auto dims = matmulDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
     auto m1_view = [&](){
         if constexpr (N1 == 1) {
-            return MatrixView<U, 2>({1, m1.dims[0]}, m1.dataView(), {m1.dims[0], 1});
+            return MatrixView<U, 2>({1, m1.dims(0)}, const_cast<U*>(m1.dataView()), {m1.dims(0), 1});
         } else {
             return MatrixView<U, N1>(m1);
         }
-    }();
+    };
     auto m2_view = [&](){
         if constexpr (N2 == 1) {
-            return MatrixView<V, 2>({m2.dims[0], 1}, m2.dataView(), {1, 1});
+            return MatrixView<V, 2>({m2.dims(0), 1}, const_cast<V*>(m2.dataView()), {1, 1});
         } else {
             return MatrixView<V, N2>(m2);
         }
-    }();
-    res.applyFunctionWithBroadcast(m1_view, m2_view, MatmulTo<U, V, T,
-        std::min(std::max(N1, 2lu), N - 1),
-        std::min(std::max(N2, 2lu), N - 1), N - 1>);
+    };
+    if constexpr (N == 2) {
+        DotTo(res, m1_view(), m2_view());
+    } else {
+        res.applyFunctionWithBroadcast(m1_view(), m2_view(), MatmulTo<U, V, T,
+                std::min(std::max(N1, 2lu), N - 1),
+                std::min(std::max(N2, 2lu), N - 1), N - 1>);
+    }
     return res;
 }
 

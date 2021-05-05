@@ -44,6 +44,11 @@ protected:
     template <IndexType... Dims>
     explicit MatrixBase(Dims... dims);
 
+    MatrixBase (const MatrixBase&) = default;
+    MatrixBase& operator= (const MatrixBase&) = default;
+    MatrixBase (MatrixBase&&) noexcept = default;
+    MatrixBase& operator= (MatrixBase&&) noexcept = default;
+
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     MatrixBase(const MatrixBase<DerivedOther, U, N>&);
 
@@ -391,6 +396,11 @@ protected:
     ~MatrixBase() noexcept = default;
     template <typename Dim> requires std::is_integral_v<Dim>
     explicit MatrixBase(Dim dim) : dims_(dim), strides_(1) {};
+
+    MatrixBase (const MatrixBase&) = default;
+    MatrixBase& operator= (const MatrixBase&) = default;
+    MatrixBase (MatrixBase&&) noexcept = default;
+    MatrixBase& operator= (MatrixBase&&) noexcept = default;
 
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     MatrixBase(const MatrixBase<DerivedOther, U, 1>&);

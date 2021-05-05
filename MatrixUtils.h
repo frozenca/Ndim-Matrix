@@ -277,14 +277,25 @@ std::array<std::size_t, M + N - 2> dotDims(const std::array<std::size_t, M>& sz1
 }
 
 template <std::size_t M, std::size_t N>
-std::array<std::size_t, std::max(M, N)> matmulDims(const std::array<std::size_t, M>& sz1,
-                                                   const std::array<std::size_t, N>& sz2) {
-    if constexpr (M == 1) {
-        std::array<std::size_t, 2> sz1_ = {1, sz1[0]};
-        return matmulDims(sz1_, sz2);
-    } else if constexpr (N == 1) {
-        std::array<std::size_t, 2> sz2_ = {sz2[0], 1};
-        return matmulDims(sz1, sz2_);
+std::array<std::size_t, std::max({M, N, 2lu})> matmulDims(const std::array<std::size_t, M>& sz1,
+                                                          const std::array<std::size_t, N>& sz2) {
+
+    if constexpr (M < 2 || N < 2) {
+        auto sz1_ = [&](){
+            if constexpr (M == 1) {
+                return std::array<std::size_t, 2> {1, sz1[0]};
+            } else {
+                return sz1;
+            }
+        };
+        auto sz2_ = [&](){
+            if constexpr (N == 1) {
+                return std::array<std::size_t, 2> {sz2[0], 1};
+            } else {
+                return sz2;
+            }
+        };
+        return matmulDims(sz1_(), sz2_());
     }
     assert(M >= 2 && N >= 2);
     if (sz1[M - 1] != sz2[N - 2]) {
@@ -306,9 +317,9 @@ std::array<std::size_t, std::max(M, N)> matmulDims(const std::array<std::size_t,
         std::copy(std::begin(last_sz), std::end(last_sz), std::begin(res_sz) + (M - 2));
         return res_sz;
     } else { // M > 2, N > 2
-        std::array<std::size_t, std::max(M, N)> res_sz;
-        std::array<std::size_t, M - 2> sz1_front;
-        std::array<std::size_t, N - 2> sz2_front;
+        std::array<std::size_t, std::max({M, N, 2lu})> res_sz;
+        std::array<std::size_t, std::max(M, 3lu) - 2> sz1_front;
+        std::array<std::size_t, std::max(N, 3lu) - 2> sz2_front;
         std::copy(std::begin(sz1), std::begin(sz1) + (M - 2), std::begin(sz1_front));
         std::copy(std::begin(sz2), std::begin(sz2) + (N - 2), std::begin(sz2_front));
         auto common_sz = bidirBroadcastedDims(sz1_front, sz2_front);

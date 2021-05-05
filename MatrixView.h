@@ -471,12 +471,11 @@ MatrixView<T, 1>::MatrixView(const std::array<std::size_t, 1>& dims, T* data_vie
 
 template <std::semiregular T>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-MatrixView<T, 1>::MatrixView(const MatrixBase<DerivedOther, U, 1>& other) : Base(other) {
+MatrixView<T, 1>::MatrixView(const MatrixBase<DerivedOther, U, 1>& other) : Base(other.dims(0)) {
+    data_view_ = const_cast<T*>(other.dataView());
     if constexpr (std::is_same_v<DerivedOther, MatrixView<U, 1>>) {
-        data_view_ = static_cast<T*>(other.dataView());
         orig_strides_ = other.origStrides();
     } else {
-        data_view_ = static_cast<T*>(other.begin());
         orig_strides_ = other.strides();
     }
 }
