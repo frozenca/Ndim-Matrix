@@ -1,6 +1,7 @@
 #ifndef FROZENCA_MATRIXBASE_H
 #define FROZENCA_MATRIXBASE_H
 
+#include <execution>
 #include <numeric>
 #include "ObjectBase.h"
 #include "MatrixInitializer.h"
@@ -106,7 +107,8 @@ public:
         if (!std::equal(std::cbegin(pos), std::cend(pos), std::cbegin(dims_), std::less<>{})) {
             throw std::out_of_range("Out of range in element access");
         }
-        return *(cbegin() + std::inner_product(std::cbegin(pos), std::cend(pos), std::cbegin(strides_), 0lu));
+        return *(cbegin() + std::transform_reduce(std::execution::par_unseq,
+                                                  std::cbegin(pos), std::cend(pos), std::cbegin(strides_), 0lu));
     }
 
     [[nodiscard]] std::size_t size() const { return size_;}
@@ -142,13 +144,15 @@ public:
     }
 
     MatrixView<T, N> submatrix(const std::array<std::size_t, N>& pos_begin);
-    MatrixView<T, N> submatrix(const std::array<std::size_t, N>& pos_begin, const std::array<std::size_t, N>& pos_end);
+    MatrixView<T, N> submatrix(const std::array<std::size_t, N>& pos_begin,
+                               const std::array<std::size_t, N>& pos_end);
     MatrixView<T, N - 1> row(std::size_t n);
     MatrixView<T, N - 1> col(std::size_t n);
     MatrixView<T, N - 1> operator[](std::size_t n) { return row(n); }
 
     MatrixView<T, N> submatrix(const std::array<std::size_t, N>& pos_begin) const;
-    MatrixView<T, N> submatrix(const std::array<std::size_t, N>& pos_begin, const std::array<std::size_t, N>& pos_end) const;
+    MatrixView<T, N> submatrix(const std::array<std::size_t, N>& pos_begin,
+                               const std::array<std::size_t, N>& pos_end) const;
     MatrixView<T, N - 1> row(std::size_t n) const;
     MatrixView<T, N - 1> col(std::size_t n) const;
     MatrixView<T, N - 1> operator[](std::size_t n) const { return row(n); }
@@ -198,7 +202,7 @@ MatrixBase<Derived, T, N>::MatrixBase(const std::array<std::size_t, N>& dims) : 
     if (std::ranges::find(dims_, 0lu) != std::end(dims_)) {
         throw std::invalid_argument("Zero dimension not allowed");
     }
-    size_ = std::accumulate(std::begin(dims_), std::end(dims_), 1lu, std::multiplies<>{});
+    size_ = std::reduce(std::execution::par_unseq, std::begin(dims_), std::end(dims_), 1lu, std::multiplies<>{});
     strides_ = computeStrides(dims_);
 }
 
@@ -214,7 +218,7 @@ MatrixBase<Derived, T, N>::MatrixBase(Dims... dims) : dims_{static_cast<std::siz
     if (std::ranges::find(dims_, 0lu) != std::end(dims_)) {
         throw std::invalid_argument("Zero dimension not allowed");
     }
-    size_ = std::accumulate(std::begin(dims_), std::end(dims_), 1lu, std::multiplies<>{});
+    size_ = std::reduce(std::execution::par_unseq, std::begin(dims_), std::end(dims_), 1lu, std::multiplies<>{});
     strides_ = computeStrides(dims_);
 }
 
@@ -223,7 +227,8 @@ template <typename DerivedOther, std::semiregular U> requires std::is_convertibl
 MatrixBase<Derived, T, N>::MatrixBase(const MatrixBase<DerivedOther, U, N>& other) : MatrixBase(other.dims()) {}
 
 template <typename Derived, std::semiregular T, std::size_t N>
-MatrixBase<Derived, T, N>::MatrixBase(typename MatrixInitializer<T, N>::type init) : MatrixBase(deriveDims<N>(init)) {}
+MatrixBase<Derived, T, N>::MatrixBase(typename MatrixInitializer<T, N>::type init) :
+MatrixBase(deriveDims<N>(init)) {}
 
 template <typename Derived, std::semiregular T, std::size_t N>
 MatrixView<T, N> MatrixBase<Derived, T, N>::submatrix(const std::array<std::size_t, N>& pos_begin) {
@@ -248,8 +253,7 @@ MatrixView<T, N> MatrixBase<Derived, T, N>::submatrix(const std::array<std::size
         throw std::out_of_range("submatrix begin/end position error");
     }
     std::array<std::size_t, N> view_dims;
-    std::transform(std::cbegin(pos_end), std::cend(pos_end), std::cbegin(pos_begin), std::begin(view_dims),
-                   std::minus<>{});
+    std::ranges::transform(pos_end, pos_begin, std::begin(view_dims), std::minus<>{});
     MatrixView<T, N> view(view_dims, const_cast<T*>(&operator[](pos_begin)), strides());
     return view;
 }
@@ -266,7 +270,7 @@ MatrixView<T, N - 1> MatrixBase<Derived, T, N>::row(std::size_t n) const {
         throw std::out_of_range("row index error");
     }
     std::array<std::size_t, N - 1> row_dims;
-    std::copy(std::cbegin(orig_dims) + 1, std::cend(orig_dims), std::begin(row_dims));
+    std::ranges::copy(orig_dims | std::views::drop(1), std::begin(row_dims));
     std::array<std::size_t, N> pos_begin = {n, };
     std::array<std::size_t, N - 1> row_strides;
 
@@ -277,7 +281,7 @@ MatrixView<T, N - 1> MatrixBase<Derived, T, N>::row(std::size_t n) const {
         orig_strides = strides();
     }
 
-    std::copy(std::cbegin(orig_strides) + 1, std::cend(orig_strides), std::begin(row_strides));
+    std::ranges::copy(orig_strides | std::views::drop(1), std::begin(row_strides));
     MatrixView<T, N - 1> nth_row(row_dims, const_cast<T*>(&operator[](pos_begin)), row_strides);
     return nth_row;
 }
@@ -294,7 +298,7 @@ MatrixView<T, N - 1> MatrixBase<Derived, T, N>::col(std::size_t n) const {
         throw std::out_of_range("row index error");
     }
     std::array<std::size_t, N - 1> col_dims;
-    std::copy(std::cbegin(orig_dims), std::cend(orig_dims) - 1, std::begin(col_dims));
+    std::ranges::copy(orig_dims | std::views::take(N - 1), std::begin(col_dims));
     std::array<std::size_t, N> pos_begin = {0};
     pos_begin[N - 1] = n;
     std::array<std::size_t, N - 1> col_strides;
@@ -306,7 +310,7 @@ MatrixView<T, N - 1> MatrixBase<Derived, T, N>::col(std::size_t n) const {
         orig_strides = strides();
     }
 
-    std::copy(std::cbegin(orig_strides), std::cend(orig_strides) - 1, std::begin(col_strides));
+    std::ranges::copy(orig_strides | std::views::take(N - 1), std::begin(col_strides));
     MatrixView<T, N - 1> nth_col(col_dims, const_cast<T*>(&operator[](pos_begin)), col_strides);
     return nth_col;
 }
@@ -319,9 +323,10 @@ template <typename DerivedOther1, typename DerivedOther2,
                 const MatrixView<U, std::min(N1, N - 1)>&,
                 const MatrixView<V, std::min(N2, N - 1)>&> F>
 requires (std::max(N1, N2) == N)
-MatrixBase<Derived, T, N>& MatrixBase<Derived, T, N>::applyFunctionWithBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
-                                                                                 const MatrixBase<DerivedOther2, V, N2>& m2,
-                                                                                 F&& f) {
+MatrixBase<Derived, T, N>&
+        MatrixBase<Derived, T, N>::applyFunctionWithBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
+                                                              const MatrixBase<DerivedOther2, V, N2>& m2,
+                                                              F&& f) {
     if constexpr (N1 == N) {
         if constexpr (N2 == N) {
             auto r = dims(0);
@@ -523,8 +528,8 @@ template <typename DerivedOther, std::semiregular U> requires std::is_convertibl
 MatrixBase<Derived, T, 1>::MatrixBase(const MatrixBase<DerivedOther, U, 1>& other) : MatrixBase(other.dims(0)) {}
 
 template <typename Derived, std::semiregular T>
-MatrixBase<Derived, T, 1>::MatrixBase(typename MatrixInitializer<T, 1>::type init) : MatrixBase(deriveDims<1>(init)[0]) {
-}
+MatrixBase<Derived, T, 1>::MatrixBase(typename MatrixInitializer<T, 1>::type init)
+: MatrixBase(deriveDims<1>(init)[0]) {}
 
 template <typename Derived, std::semiregular T>
 MatrixView<T, 1> MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin) {

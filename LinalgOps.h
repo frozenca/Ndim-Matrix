@@ -2,7 +2,6 @@
 #define FROZENCA_LINALGOPS_H
 
 #include <bit>
-#include <ranges>
 #include "MatrixImpl.h"
 
 namespace frozenca {
@@ -14,7 +13,7 @@ requires DotProductableTo<U, V, T>
 void DotTo(T& m,
            const MatrixView<U, 1>& m1,
            const MatrixView<V, 1>& m2) {
-    m += std::inner_product(std::begin(m1), std::end(m1), std::begin(m2), T{0});
+    m += std::transform_reduce(std::execution::par_unseq, std::begin(m1), std::end(m1), std::begin(m2), T{0});
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
@@ -26,7 +25,8 @@ void DotTo(MatrixView<T, 1>& m,
     std::size_t c = m2.dims(1);
     for (std::size_t j = 0; j < c; ++j) {
         auto col2 = m2.col(j);
-        m[j] += std::inner_product(std::begin(m1), std::end(m1), std::begin(col2), T{0});
+        m[j] += std::transform_reduce(std::execution::par_unseq,
+                                      std::begin(m1), std::end(m1), std::begin(col2), T{0});
     }
 }
 
@@ -169,7 +169,7 @@ decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<De
 }
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
-std::tuple<std::vector<std::size_t>, Matrix<B, 2>, Matrix<B, 2>> LUP(const MatrixBase<Derived, A, 2>& mat) {
+std::tuple<std::vector<std::size_t>, Mat<B>, Mat<B>> LUP(const MatrixBase<Derived, A, 2>& mat) {
 
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
@@ -179,9 +179,9 @@ std::tuple<std::vector<std::size_t>, Matrix<B, 2>, Matrix<B, 2>> LUP(const Matri
     std::vector<std::size_t> P (n);
     std::iota(std::begin(P), std::end(P), 0lu);
 
-    Matrix<B, 2> A_ = mat;
-    Matrix<B, 2> U = zeros_like(A_);
-    Matrix<B, 2> L = identity<B>(n);
+    Mat<B> A_ = mat;
+    Mat<B> U = zeros_like(A_);
+    Mat<B> L = identity<B>(n);
 
     for (std::size_t k = 0; k < n; ++k) {
         A p {0};
@@ -222,14 +222,14 @@ std::tuple<std::vector<std::size_t>, Matrix<B, 2>, Matrix<B, 2>> LUP(const Matri
 }
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
-std::pair<Matrix<B, 2>, Matrix<B, 2>> Cholesky(const MatrixBase<Derived, A, 2>& mat) {
+std::pair<Mat<B>, Mat<B>> Cholesky(const MatrixBase<Derived, A, 2>& mat) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
     if (n != C) {
         throw std::invalid_argument("Not a square matrix, cannot do Cholesky decomposition");
     }
-    Matrix<B, 2> A_ = mat;
-    Matrix<B, 2> L = zeros_like(A_);
+    Mat<B> A_ = mat;
+    Mat<B> L = zeros_like(A_);
 
     for (std::size_t i = 0; i < n; ++i) {
         for (std::size_t j = 0; j < i + 1; ++j) {
@@ -311,20 +311,20 @@ A det(const MatrixBase<Derived, A, 2>& mat) {
 namespace {
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
-Matrix<B, 2> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
+Mat<B> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
     std::size_t n = mat.dims(0);
     if (n == 1) {
         if (mat(0, 0) == A{0}) {
             throw std::invalid_argument("Singular matrix, cannot invertible");
         }
-        Matrix<B, 2> Inv = full_like(mat, B{1} / mat(0, 0));
+        Mat<B> Inv = full_like(mat, B{1} / mat(0, 0));
         return Inv;
     } else if (n == 2) {
         auto det_val = mat(0, 0) * mat(1, 1) - mat(0, 1) * mat(1, 0);
         if (det_val == B{0}) {
             throw std::invalid_argument("Singular matrix, cannot invertible");
         }
-        Matrix<B, 2> Inv {{mat(1, 1), -mat(0, 1)}, {-mat(1, 0), mat(0, 0)}};
+        Mat<B> Inv {{mat(1, 1), -mat(0, 1)}, {-mat(1, 0), mat(0, 0)}};
         Inv /= det_val;
         return Inv;
     } else {
@@ -337,23 +337,23 @@ Matrix<B, 2> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
         auto R = mat.submatrix({half, 0}, {n, half});
         auto S = mat.submatrix({half, half}, {n, n});
 
-        Matrix<B, 2> Inv = empty_like(mat);
+        Mat<B> Inv = empty_like(mat);
         auto InvP = Inv.submatrix({0, 0}, {half, half});
         auto InvQ = Inv.submatrix({0, half}, {half, n});
         auto InvR = Inv.submatrix({half, 0}, {n, half});
         auto InvS = Inv.submatrix({half, half}, {n, n});
-        if (std::all_of(std::begin(Q), std::end(Q), [](const auto& q){return q == A{0};})) {
+        if (std::ranges::all_of(Q, [](const auto& q){return q == A{0};})) {
             // [ P^-1          0    ]
             // [ -S^-1RP^-1    S^-1 ]
             InvP = inv_impl(P);
-            std::fill(std::begin(InvQ), std::end(InvQ), A{0});
+            std::ranges::fill(InvQ, A{0});
             InvS = inv_impl(S);
             InvR = -dot(dot(InvS, R), InvP);
-        } else if (std::all_of(std::begin(R), std::end(R), [](const auto& r){return r == A{0};})) {
+        } else if (std::ranges::all_of(R, [](const auto& r){return r == A{0};})) {
             // [ P^-1  -P^-1QS^-1 ]
             // [ 0           S^-1 ]
             InvP = inv_impl(P);
-            std::fill(std::begin(InvR), std::end(InvR), A{0});
+            std::ranges::fill(InvR, A{0});
             InvS = inv_impl(S);
             InvQ = -dot(dot(InvP, Q), InvS);
         } else {
@@ -378,7 +378,7 @@ Matrix<B, 2> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
 } // anonymous namespace
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
-Matrix<B, 2> inv(const MatrixBase<Derived, A, 2>& mat) {
+Mat<B> inv(const MatrixBase<Derived, A, 2>& mat) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
     if (n != C) {
@@ -392,11 +392,11 @@ B norm(const MatrixBase<Derived, A, 1>& vec, std::size_t p = 2) {
     if (p == 0) {
         throw std::invalid_argument("Norm is undefined");
     } else if (p == 1) {
-        return std::accumulate(std::begin(vec), std::end(vec), B{0}, [](B accu, A val) {
+        return std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec), B{0}, [](B accu, B val) {
             return accu + std::abs(val);
         });
     }
-    B pow_sum = std::accumulate(std::begin(vec), std::end(vec), B{0}, [&p](B accu, A val) {
+    B pow_sum = std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec), B{0}, [&p](B accu, B val) {
         return accu + std::pow(val, p);
     });
     return std::pow(pow_sum, 1.0f / static_cast<float>(p));
@@ -405,7 +405,7 @@ B norm(const MatrixBase<Derived, A, 1>& vec, std::size_t p = 2) {
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
 B norm(const MatrixBase<Derived, A, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
     if (p == 2 && q == 2) { // Frobenius norm
-        B pow_sum = std::accumulate(std::begin(mat), std::end(mat), B{0}, [](B accu, A val) {
+        B pow_sum = std::reduce(std::execution::par_unseq, std::begin(mat), std::end(mat), B{0}, [](B accu, A val) {
             return accu + std::pow(val, 2.0);
         });
         return std::sqrt(pow_sum);
@@ -422,10 +422,10 @@ B norm(const MatrixBase<Derived, A, 2>& mat, std::size_t p = 2, std::size_t q = 
 namespace {
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
-Matrix<B, 2> getQ(const MatrixBase<Derived, A, 2>& V) {
+Mat<B> getQ(const MatrixBase<Derived, A, 2>& V) {
     std::size_t R = V.dims(0);
     std::size_t C = V.dims(1);
-    Matrix<B, 2> Q = zeros_like(V);
+    Mat<B> Q = zeros_like(V);
     auto curr_col = Q.col(0);
     curr_col = V.col(0);
     if (norm(curr_col, 1) == B{0}) {
@@ -451,7 +451,7 @@ Matrix<B, 2> getQ(const MatrixBase<Derived, A, 2>& V) {
 } // anonymous namespace
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
-std::pair<Matrix<B, 2>, Matrix<B, 2>> QR(const MatrixBase<Derived, A, 2>& mat) {
+std::pair<Mat<B>, Mat<B>> QR(const MatrixBase<Derived, A, 2>& mat) {
     auto Q = getQ(mat);
     auto R = dot(transpose(Q), mat);
     return {Q, R};

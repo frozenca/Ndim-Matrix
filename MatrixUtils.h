@@ -11,6 +11,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <ranges>
 #include <stdexcept>
 #include <type_traits>
 
@@ -325,7 +326,7 @@ std::array<std::size_t, M - 1> dotDims(const std::array<std::size_t, M>& sz1,
         throw std::invalid_argument("Cannot do dot product, shape is not aligned");
     }
     std::array<std::size_t, M - 1> sz;
-    std::copy(std::begin(sz1), std::begin(sz1) + (M - 1), std::begin(sz));
+    std::ranges::copy(sz1 | std::views::take(M - 1), std::begin(sz));
     return sz;
 }
 
@@ -336,9 +337,9 @@ std::array<std::size_t, M + N - 2> dotDims(const std::array<std::size_t, M>& sz1
         throw std::invalid_argument("Cannot do dot product, shape is not aligned");
     }
     std::array<std::size_t, M + N - 2> sz;
-    std::copy(std::begin(sz1), std::begin(sz1) + (M - 1), std::begin(sz));
-    std::copy(std::begin(sz2), std::begin(sz2) + (N - 2), std::begin(sz) + (M - 1));
-    std::copy(std::begin(sz2) + (N - 1), std::end(sz2), std::begin(sz) + (M + N - 3));
+    std::ranges::copy(sz1 | std::views::take(M - 1), std::begin(sz));
+    std::ranges::copy(sz2 | std::views::take(N - 2), std::begin(sz) + (M - 1));
+    std::ranges::copy(sz2 | std::views::drop(N - 1), std::begin(sz) + (M + N - 3));
     return sz;
 }
 
@@ -373,24 +374,24 @@ std::array<std::size_t, std::max({M, N, 2lu})> matmulDims(const std::array<std::
             return last_sz;
         } else { // M = 2, N > 2
             std::array<std::size_t, N> res_sz;
-            std::copy(std::begin(sz2), std::begin(sz2) + (N - 2), std::begin(res_sz));
-            std::copy(std::begin(last_sz), std::end(last_sz), std::begin(res_sz) + (N - 2));
+            std::ranges::copy(sz2 | std::views::take(N - 2), std::begin(res_sz));
+            std::ranges::copy(last_sz, std::begin(res_sz) + (N - 2));
             return res_sz;
         }
     } else if constexpr (N == 2) { // M > 2, N = 2
         std::array<std::size_t, M> res_sz;
-        std::copy(std::begin(sz1), std::begin(sz2) + (M - 2), std::begin(res_sz));
-        std::copy(std::begin(last_sz), std::end(last_sz), std::begin(res_sz) + (M - 2));
+        std::ranges::copy(sz1 | std::views::take(M - 2), std::begin(res_sz));
+        std::ranges::copy(last_sz, std::begin(res_sz) + (M - 2));
         return res_sz;
     } else { // M > 2, N > 2
         std::array<std::size_t, std::max({M, N, 2lu})> res_sz;
         std::array<std::size_t, std::max(M, 3lu) - 2> sz1_front;
         std::array<std::size_t, std::max(N, 3lu) - 2> sz2_front;
-        std::copy(std::begin(sz1), std::begin(sz1) + (M - 2), std::begin(sz1_front));
-        std::copy(std::begin(sz2), std::begin(sz2) + (N - 2), std::begin(sz2_front));
+        std::ranges::copy(sz1 | std::views::take(M - 2), std::begin(sz1_front));
+        std::ranges::copy(sz2 | std::views::take(N - 2), std::begin(sz2_front));
         auto common_sz = bidirBroadcastedDims(sz1_front, sz2_front);
-        std::copy(std::begin(common_sz), std::end(common_sz), std::begin(res_sz));
-        std::copy(std::begin(last_sz), std::end(last_sz), std::end(res_sz) - 2);
+        std::ranges::copy(common_sz, std::begin(res_sz));
+        std::ranges::copy(last_sz, std::end(res_sz) - 2);
         return res_sz;
     }
 

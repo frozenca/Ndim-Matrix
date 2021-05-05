@@ -58,6 +58,8 @@ public:
         std::size_t offset_ = 0;
         std::size_t index_ = 0;
 
+        MVIterator() = default;
+
         MVIterator(MatViewType ptr, std::array<std::size_t, N> pos = {0}) : ptr_ {ptr}, pos_ {pos} {
             ValidateOffset();
         }
@@ -71,8 +73,10 @@ public:
         }
 
         void ValidateOffset() {
-            offset_ = std::inner_product(std::cbegin(pos_), std::cend(pos_), std::cbegin(ptr_->orig_strides_), 0lu);
-            index_ = std::inner_product(std::cbegin(pos_), std::cend(pos_), std::cbegin(ptr_->strides()), 0lu);
+            offset_ = std::transform_reduce(std::execution::par_unseq,
+                                            std::cbegin(pos_), std::cend(pos_), std::cbegin(ptr_->orig_strides_), 0lu);
+            index_ = std::transform_reduce(std::execution::par_unseq,
+                                           std::cbegin(pos_), std::cend(pos_), std::cbegin(ptr_->strides()), 0lu);
             assert(index_ <= ptr_->size());
         }
 
@@ -183,12 +187,12 @@ public:
         }
 
         reference operator[](difference_type n) const {
-            return *(this + n);
+            return *(*this + n);
         }
 
         template <typename T2> requires std::is_same_v<std::remove_cv_t<T_>, std::remove_cv_t<T2>>
         difference_type operator-(const MVIterator<T2>& other) const {
-            return offset_ - other.offset_;
+            return index_ - other.index_;
         }
 
     };
@@ -322,6 +326,8 @@ public:
         std::size_t offset_ = 0;
         std::size_t index_ = 0;
 
+        MVIterator() = default;
+
         MVIterator(MatViewType ptr, std::size_t pos = 0) : ptr_ {ptr}, pos_ {pos} {
             ValidateOffset();
         }
@@ -413,12 +419,12 @@ public:
         }
 
         reference operator[](difference_type n) const {
-            return *(this + n);
+            return *(*this + n);
         }
 
         template <typename T2> requires std::is_same_v<std::remove_cv_t<T_>, std::remove_cv_t<T2>>
         difference_type operator-(const MVIterator<T2>& other) const {
-            return offset_ - other.offset_;
+            return index_ - other.index_;
         }
 
     };
@@ -447,9 +453,9 @@ public:
     iterator begin() { return iterator(this);}
     const_iterator begin() const { return const_iterator(this); }
     const_iterator cbegin() const { return const_iterator(this); }
-    iterator end() { return iterator(this, {dims(0), });}
-    const_iterator end() const { return const_iterator(this, {dims(0), });}
-    const_iterator cend() const { return const_iterator(this, {dims(0), });}
+    iterator end() { return iterator(this, dims(0));}
+    const_iterator end() const { return const_iterator(this, dims(0));}
+    const_iterator cend() const { return const_iterator(this, dims(0));}
     reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
     const_reverse_iterator rbegin() const { return std::make_reverse_iterator(cend());}
     const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}

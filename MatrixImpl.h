@@ -102,7 +102,8 @@ public:
     friend Matrix<T_, M_> reshaped(Matrix<T_, N_>&& orig, const std::array<std::size_t, M_>& new_dims) noexcept;
 
     template <typename Derived, std::semiregular T_, std::size_t N_>
-    friend Matrix<T_, N_> transpose(const MatrixBase<Derived, T_, N_>& orig, const std::array<std::size_t, N_>& perm);
+    friend Matrix<T_, N_> transpose(const MatrixBase<Derived, T_, N_>& orig,
+                                    const std::array<std::size_t, N_>& perm);
 
     Matrix& operator-() {
         Base::Base::operator-();
@@ -244,7 +245,8 @@ public:
     friend Matrix<T_, M_> reshaped(Matrix<T_, N_>&& orig, const std::array<std::size_t, M_>& new_dims) noexcept;
 
     template <typename Derived, std::semiregular T_, std::size_t N_>
-    friend Matrix<T_, N_> transpose(const MatrixBase<Derived, T_, N_>& orig, const std::array<std::size_t, N_>& perm);
+    friend Matrix<T_, N_> transpose(const MatrixBase<Derived, T_, N_>& orig,
+                                    const std::array<std::size_t, N_>& perm);
 
     Matrix& operator-() {
         Base::Base::operator-();
@@ -293,7 +295,8 @@ Matrix<T, M> reshaped(Matrix<T, N>&& orig, const std::array<std::size_t, M>& new
 
 template <std::semiregular T, std::size_t M, std::size_t N>
 Matrix<T, M> reshape(Matrix<T, N>&& orig, const std::array<std::size_t, M>& new_dims) {
-    auto new_size = std::accumulate(std::begin(new_dims), std::end(new_dims), 1lu, std::multiplies<>{});
+    auto new_size = std::reduce(std::execution::par_unseq,
+                                std::begin(new_dims), std::end(new_dims), 1lu, std::multiplies<>{});
     if (new_size != orig.size()) {
         throw std::invalid_argument("Cannot reshape, size is different");
     }
