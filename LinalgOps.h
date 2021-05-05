@@ -166,6 +166,65 @@ decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<De
     return res;
 }
 
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+std::tuple<std::vector<std::size_t>, Matrix<B, 2>, Matrix<B, 2>> LUP(const MatrixBase<Derived, A, 2>& mat) {
+
+    std::size_t n = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square matrix, cannot do LUP decomposition");
+    }
+    std::vector<std::size_t> P (n);
+    std::iota(std::begin(P), std::end(P), 0lu);
+
+    Matrix<B, 2> A_ = mat;
+    Matrix<B, 2> U = zeros<B, 2>({n, n});
+    Matrix<B, 2> L = identity<B>(n);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < i; ++j) {
+            U(i, j) = 0;
+        }
+    }
+
+    for (std::size_t k = 0; k < n; ++k) {
+        A p {0};
+        std::size_t k_ = -1;
+        for (std::size_t i = k; i < n; ++i) {
+            auto val = std::fabs(A_(i, k));
+            if (val > p) {
+                p = val;
+                k_ = i;
+            }
+        }
+        if (p == A{0}) {
+            throw std::invalid_argument("Singular matrix");
+        }
+        std::swap(P[k], P[k_]);
+        for (std::size_t i = 0; i < n; ++i) {
+            std::swap(A_(k, i), A_(k_, i));
+        }
+        for (std::size_t i = k + 1; i < n; ++i) {
+            A_(i, k) /= A_(k, k);
+            for (std::size_t j = k + 1; j < n; ++j) {
+                A_(i, j) -= A_(i, k) * A_(k, j);
+            }
+        }
+    }
+
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            if (j < i) {
+                L(i, j) = A_(i, j);
+            } else {
+                U(i, j) = A_(i, j);
+            }
+        }
+    }
+
+    return {P, L, U};
+}
+
 } // namespace frozenca
 
 #endif //FROZENCA_LINALGOPS_H

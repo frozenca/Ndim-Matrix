@@ -88,7 +88,7 @@ public:
     Matrix& operator=(typename MatrixInitializer<T, N>::type init);
 
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-    explicit Matrix(const MatrixBase<DerivedOther, U, N>& other);
+    Matrix(const MatrixBase<DerivedOther, U, N>& other);
 
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     Matrix& operator=(const MatrixBase<DerivedOther, U, N>& other);

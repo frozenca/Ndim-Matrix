@@ -33,7 +33,7 @@ public:
                         const std::array<std::size_t, N>& orig_strides);
 
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-    explicit MatrixView(const MatrixBase<DerivedOther, U, N>& other);
+    MatrixView(const MatrixBase<DerivedOther, U, N>& other);
 
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     MatrixView& operator=(const MatrixBase<DerivedOther, U, N>& other);
@@ -291,7 +291,7 @@ public:
                         const std::array<std::size_t, 1>& orig_strides);
 
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-    explicit MatrixView(const MatrixBase<DerivedOther, U, 1>& other);
+    MatrixView(const MatrixBase<DerivedOther, U, 1>& other);
 
     template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
     MatrixView& operator=(const MatrixBase<DerivedOther, U, 1>& other);

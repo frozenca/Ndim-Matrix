@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <complex>
 #include <concepts>
 #include <cstddef>
 #include <initializer_list>
@@ -178,6 +179,62 @@ concept DotProductable = Addable<MulType<A, B>, MulType<A, B>>;
 
 template <typename A, typename B, typename C>
 concept DotProductableTo = DotProductable<A, B> && MultipliableTo<A, B, C> && Addable<C, C>;
+
+template <typename T>
+concept isComplex = std::is_same_v<T, std::complex<float>>
+|| std::is_same_v<T, std::complex<double>>
+|| std::is_same_v<T, std::complex<long double>>;
+
+template <typename T>
+concept isScalar = std::integral<T> || std::floating_point<T> || isComplex<T>;
+
+template <typename T>
+struct RealType;
+
+template <std::integral T>
+struct RealType<T> {
+    using type = float;
+};
+
+template <std::floating_point T>
+struct RealType<T> {
+    using type = T;
+};
+
+template <isComplex T>
+struct RealType<T> {
+    using type = T;
+};
+
+template <typename A>
+using RealTypeT = typename RealType<A>::type;
+
+template <typename A, typename B>
+concept RealTypeTo = std::is_convertible_v<RealTypeT<A>, B>;
+
+template <typename T>
+struct CmpType;
+
+template <std::integral T>
+struct CmpType<T> {
+    using type = std::complex<float>;
+};
+
+template <std::floating_point T>
+struct CmpType<T> {
+    using type = std::complex<T>;
+};
+
+template <typename A>
+using CmpTypeT = typename CmpType<A>::type;
+
+template <typename A, typename B>
+concept CmpTypeTo = std::is_convertible_v<CmpTypeT<A>, B>;
+
+template <isComplex T>
+struct CmpType<T> {
+    using type = T;
+};
 
 template <typename A, typename B, typename C> requires AddableTo<A, B, C>
 inline void PlusTo(C& c, const A& a, const B& b) {

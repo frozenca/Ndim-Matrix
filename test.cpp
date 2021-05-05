@@ -3,14 +3,20 @@
 #include <numeric>
 
 int main() {
-    frozenca::Matrix<int, 1> A(3);
-    frozenca::Matrix<int, 1> B(3);
-    std::iota(std::begin(A), std::end(A), 0);
-    std::iota(std::begin(B), std::end(B), 0);
-    auto C = frozenca::dot(A, B);
-    std::cout << C << '\n';
-    auto D = frozenca::matmul(A, B);
-    std::cout << D << '\n';
+    frozenca::Matrix<float, 2> A {{2, 0, 2, 0.6},
+                                  {3, 3, 4, -2},
+                                  {5, 5, 4, 2},
+                                  {-1, -2, 3.4, -1}};
+
+    auto [P, L, U] = frozenca::LUP(A);
+    for (auto p : P) {
+        std::cout << p << ' ';
+    }
+    std::cout << '\n';
+
+    std::cout << L << '\n';
+    std::cout << U << '\n';
+
 
 
 }

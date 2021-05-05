@@ -87,13 +87,27 @@ public:
     auto crend() const { return self().crend(); }
 
     template <IndexType... Args>
-    reference operator()(Args... args);
+    reference operator()(Args... args) {
+        return const_cast<reference>(std::as_const(*this).operator()(args...));
+    }
 
     template <IndexType... Args>
-    const_reference operator()(Args... args) const;
+    const_reference operator()(Args... args) const {
+        static_assert(sizeof...(args) == N);
+        std::array<std::size_t, N> pos {std::size_t(args)...};
+        return operator[](pos);
+    }
 
-    reference operator[](const std::array<std::size_t, N>& pos);
-    const_reference operator[](const std::array<std::size_t, N>& pos) const;
+    reference operator[](const std::array<std::size_t, N>& pos) {
+        return const_cast<reference>(std::as_const(*this).operator[](pos));
+    }
+
+    const_reference operator[](const std::array<std::size_t, N>& pos) const {
+        if (!std::equal(std::cbegin(pos), std::cend(pos), std::cbegin(dims_), std::less<>{})) {
+            throw std::out_of_range("Out of range in element access");
+        }
+        return *(cbegin() + std::inner_product(std::cbegin(pos), std::cend(pos), std::cbegin(strides_), 0lu));
+    }
 
     [[nodiscard]] std::size_t size() const { return size_;}
 
@@ -194,33 +208,6 @@ MatrixBase<Derived, T, N>::MatrixBase(const MatrixBase<DerivedOther, U, N>& othe
 
 template <typename Derived, std::semiregular T, std::size_t N>
 MatrixBase<Derived, T, N>::MatrixBase(typename MatrixInitializer<T, N>::type init) : MatrixBase(deriveDims<N>(init)) {}
-
-template <typename Derived, std::semiregular T, std::size_t N>
-template <IndexType... Args>
-typename MatrixBase<Derived, T, N>::reference MatrixBase<Derived, T, N>::operator()(Args... args) {
-    return const_cast<typename MatrixBase<Derived, T, N>::reference>(std::as_const(*this).operator()(args...));
-}
-
-template <typename Derived, std::semiregular T, std::size_t N>
-template <IndexType... Args>
-typename MatrixBase<Derived, T, N>::const_reference MatrixBase<Derived, T, N>::operator()(Args... args) const {
-    static_assert(sizeof...(args) == N);
-    std::array<std::size_t, N> pos {std::size_t(args)...};
-    return operator[](pos);
-}
-
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::reference MatrixBase<Derived, T, N>::operator[](const std::array<std::size_t, N>& pos) {
-    return const_cast<typename MatrixBase<Derived, T, N>::reference>(std::as_const(*this).operator[](pos));
-}
-
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::const_reference MatrixBase<Derived, T, N>::operator[](const std::array<std::size_t, N>& pos) const {
-    if (!std::equal(std::cbegin(pos), std::cend(pos), std::cbegin(dims_), std::less<>{})) {
-        throw std::out_of_range("Out of range in element access");
-    }
-    return *(cbegin() + std::inner_product(std::cbegin(pos), std::cend(pos), std::cbegin(strides_), 0lu));
-}
 
 template <typename Derived, std::semiregular T, std::size_t N>
 MatrixView<T, N> MatrixBase<Derived, T, N>::submatrix(const std::array<std::size_t, N>& pos_begin) {
@@ -497,6 +484,10 @@ public:
                                            F&& f);
 
 };
+
+template <typename Derived, std::semiregular T>
+template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
+MatrixBase<Derived, T, 1>::MatrixBase(const MatrixBase<DerivedOther, U, 1>& other) : MatrixBase(other.dims(0)) {}
 
 template <typename Derived, std::semiregular T>
 MatrixBase<Derived, T, 1>::MatrixBase(typename MatrixInitializer<T, 1>::type init) : MatrixBase(deriveDims<1>(init)[0]) {
