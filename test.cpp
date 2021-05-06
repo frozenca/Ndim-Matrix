@@ -1,5 +1,6 @@
 #include "Matrix.h"
 #include <chrono>
+#include <complex>
 #include <iostream>
 #include <random>
 #include <numeric>
@@ -7,16 +8,28 @@
 namespace fc = frozenca;
 
 int main() {
-    fc::Mat<float> A {{1, 1, 1, 1, 1, 1},
-                      {32, 16, 8, 4, 2, 1},
-                      {243, 81, 27, 9, 3, 1},
-                      {1024, 256, 64, 16, 4, 1},
-                      {3125, 625, 125, 25, 5, 1},
-                      {7776, 1296, 216, 36, 6, 1}};
+    {
+        fc::Mat<float> A{{1, 0, 0, 0, 2},
+                         {0, 0, 3, 0, 0},
+                         {0, 0, 0, 0, 0},
+                         {0, 2, 0, 0, 0}};
 
-    auto B = fc::inv(A);
-    std::cout << B << '\n';
+        auto[U, Sigma, V] = fc::SVD(A);
+        std::cout << U << '\n';
+        std::cout << Sigma << '\n';
+        std::cout << V << '\n';
+    }
+    {
+        fc::Mat<std::complex<float>> A{{1, 0, 0, 0, 2},
+                         {0, 0, 3, 0, 0},
+                         {0, 0, 0, 0, 0},
+                         {0, 2, 0, 0, 0}};
 
+        auto[U, Sigma, V] = fc::SVD(A);
+        std::cout << U << '\n';
+        std::cout << Sigma << '\n';
+        std::cout << V << '\n';
+    }
 
 
 

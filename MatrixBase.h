@@ -313,7 +313,7 @@ template <typename Derived, std::semiregular T, std::size_t N>
 MatrixView<T, N - 1> MatrixBase<Derived, T, N>::col(std::size_t n) const {
     const auto& orig_dims = dims();
     if (n >= orig_dims[N - 1]) {
-        throw std::out_of_range("row index error");
+        throw std::out_of_range("col index error");
     }
     std::array<std::size_t, N - 1> col_dims;
     std::ranges::copy(orig_dims | std::views::take(N - 1), std::begin(col_dims));

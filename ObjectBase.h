@@ -106,6 +106,7 @@ public:
     ObjectBase& conj() requires isScalar<typename Derived::value_type> {
         return applyFunction([](auto& v) {v = std::conj(v);});
     }
+
 };
 
 template <typename Derived>
@@ -209,6 +210,13 @@ template <typename Derived, isNotMatrix U> requires BitMaskable<typename Derived
 ObjectBase<Derived> operator>>(const ObjectBase<Derived>& m, const U& val) {
     ObjectBase<Derived> res = m;
     res >>= val;
+    return res;
+}
+
+template <typename Derived> requires isScalar<typename Derived::value_type>
+ObjectBase<Derived> conj(const ObjectBase<Derived>& m) {
+    ObjectBase<Derived> res = m;
+    res.conj();
     return res;
 }
 

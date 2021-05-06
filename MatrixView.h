@@ -273,7 +273,9 @@ MatrixView<T, N>::MatrixView(const MatrixBase<DerivedOther, U, N>& other) : Base
 template <std::semiregular T, std::size_t N>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, N>& MatrixView<T, N>::operator=(const MatrixBase<DerivedOther, U, N>& other) {
-    std::copy(std::execution::par_unseq, begin(), end(), std::begin(other));
+    std::size_t len1 = end() - begin();
+    std::size_t len2 = std::distance(std::begin(other), std::end(other));
+    std::copy(std::execution::par_unseq, begin(), begin() + std::min(len1, len2), std::begin(other));
     return *this;
 }
 
@@ -506,7 +508,9 @@ MatrixView<T, 1>::MatrixView(const MatrixBase<DerivedOther, U, 1>& other) : Base
 template <std::semiregular T>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, 1>& MatrixView<T, 1>::operator=(const MatrixBase<DerivedOther, U, 1>& other) {
-    std::copy(std::execution::par_unseq, begin(), end(), std::begin(other));
+    std::size_t len1 = end() - begin();
+    std::size_t len2 = std::distance(std::begin(other), std::end(other));
+    std::copy(std::execution::par_unseq, begin(), begin() + std::min(len1, len2), std::begin(other));
     return *this;
 }
 

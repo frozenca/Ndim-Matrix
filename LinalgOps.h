@@ -2,6 +2,9 @@
 #define FROZENCA_LINALGOPS_H
 
 #include <bit>
+#include <cmath>
+#include <queue>
+#include <vector>
 #include "MatrixImpl.h"
 
 namespace frozenca {
@@ -14,6 +17,15 @@ void DotTo(T& m,
            const MatrixView<U, 1>& m1,
            const MatrixView<V, 1>& m2) {
     m += std::transform_reduce(std::execution::par_unseq, std::begin(m1), std::end(m1), std::begin(m2), T{0});
+}
+
+template <isComplex U, isComplex V, isComplex T>
+void CompDotTo(T& m,
+           const MatrixView<U, 1>& m1,
+           const MatrixView<V, 1>& m2) {
+    m += std::transform_reduce(std::execution::par_unseq, std::begin(m1), std::end(m1), std::begin(m2), T{0},
+                               [](const auto& u, const auto& v){ return u + v;},
+                               [](const auto& u, const auto& v){ return std::conj(u) * v;});
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
@@ -98,6 +110,17 @@ void DotTo(T& m,
     DotTo(m, m1_view, m2_view);
 }
 
+
+template <typename Derived1, typename Derived2,
+        isComplex U, isComplex V, isComplex T>
+void CompDotTo(T& m,
+           const MatrixBase<Derived1, U, 1>& m1,
+           const MatrixBase<Derived2, V, 1>& m2) {
+    MatrixView<U, 1> m1_view (m1);
+    MatrixView<V, 1> m2_view (m2);
+    CompDotTo(m, m1_view, m2_view);
+}
+
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires DotProductableTo<U, V, T> && (std::max(N1, N2) == N)
@@ -133,6 +156,18 @@ decltype(auto) dot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derive
     }
     T res {0};
     DotTo(res, m1, m2);
+    return res;
+}
+
+template <typename Derived1, typename Derived2,
+        isComplex U, isComplex V,
+        isComplex T = MulType<U, V>>
+decltype(auto) compdot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derived2, V, 1>& m2) {
+    if (m1.dims(0) != m2.dims(0)) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    T res {0};
+    CompDotTo(res, m1, m2);
     return res;
 }
 
@@ -197,9 +232,7 @@ std::tuple<std::vector<std::size_t>, Mat<B>, Mat<B>> LUP(const MatrixBase<Derive
             throw std::invalid_argument("Singular matrix");
         }
         std::swap(P[k], P[k_]);
-        for (std::size_t i = 0; i < n; ++i) {
-            std::swap(A_[{k, i}], A_[{k_, i}]);
-        }
+        A_.swapRows(k, k_);
         for (std::size_t i = k + 1; i < n; ++i) {
             A_[{i, k}] /= A_[{k, k}];
             for (std::size_t j = k + 1; j < n; ++j) {
@@ -245,7 +278,7 @@ std::pair<Mat<B>, Mat<B>> Cholesky(const MatrixBase<Derived, A, 2>& mat) {
             if (i == j) {
                 L[{i, j}] = std::sqrt(A_[{i, i}] - sum);
             } else {
-                L[{i, j}] = ((A{1.0} / L[{j, j}]) * (A_[{i, j}] - sum));
+                L[{i, j}] = ((A{1.0f} / L[{j, j}]) * (A_[{i, j}] - sum));
             }
         }
     }
@@ -376,7 +409,7 @@ Mat <B> pow_impl(const MatrixBase<Derived, A, 2>& mat, int p) {
     }
 }
 
-} // anonympus namespace
+} // anonymous namespace
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
 Mat<B> pow(const MatrixBase<Derived, A, 2>& mat, int p) {
@@ -413,7 +446,7 @@ template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires Real
 B norm(const MatrixBase<Derived, A, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
     if (p == 2 && q == 2) { // Frobenius norm
         B pow_sum = std::reduce(std::execution::par_unseq, std::begin(mat), std::end(mat), B{0}, [](B accu, A val) {
-            return accu + std::pow(val, 2.0);
+            return accu + std::pow(val, 2.0f);
         });
         return std::sqrt(pow_sum);
     }
@@ -462,6 +495,116 @@ std::pair<Mat<B>, Mat<B>> QR(const MatrixBase<Derived, A, 2>& mat) {
     auto Q = getQ(mat);
     auto R = dot(transpose(Q), mat);
     return {Q, R};
+}
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+std::tuple<Mat<B>, Mat<B>, Mat<B>> SVD(const MatrixBase<Derived, A, 2>& mat, std::size_t trunc) {
+    constexpr float conv_criterion = 1e-6;
+    constexpr std::size_t max_iter = 1'000;
+
+    std::size_t iter = 0;
+    std::size_t m = mat.dims(0);
+    std::size_t n = mat.dims(1);
+    Mat<B> U = mat;
+    Mat<B> Sigma = zeros<B, 2>({n, n});
+    Mat<B> V = identity<B>(n);
+    auto dot_func = [&](auto& ri, auto& rj){
+        if constexpr (isComplex<A> || isComplex<B>) {
+            return compdot(ri, rj);
+        } else {
+            return dot(ri, rj);
+        }
+    };
+
+    auto compute_zeta = [&](const auto& alpha, const auto& beta, const auto& gamma){
+        if constexpr (isComplex<A> || isComplex<B>) {
+            return std::real(beta - alpha) / std::real(gamma + std::conj(gamma));
+        } else {
+            return (beta - alpha) / (2.0f * gamma);
+        }
+    };
+
+    auto ratio_denom = [&](const auto& alpha, const auto& beta) {
+        if constexpr (isComplex<A> || isComplex<B>) {
+            return std::sqrt(std::real(beta * alpha));
+        } else {
+            return std::sqrt(beta * alpha);
+        }
+    };
+
+    while (++iter < max_iter) {
+        float max_ratio = 0.0f;
+        for (std::size_t i = 0; i < m; ++i) {
+            auto ri = U.row(i);
+            for (std::size_t j = i + 1; j < m; ++j) {
+                auto rj = U.row(j);
+                auto alpha = dot_func(ri, ri);
+                auto beta = dot_func(rj, rj);
+                auto gamma = dot_func(ri, rj);
+                float zeta = compute_zeta(alpha, beta, gamma);
+                auto sign = std::signbit(zeta) ? -1 : +1;
+                auto t = sign / (std::abs(zeta) + std::sqrt(1.0f + std::pow(zeta, 2.0f)));
+                float c = 1.0f / std::sqrt(1.0 + std::pow(t, 2.0f));
+                float s = c * t;
+
+                for (std::size_t k = 0; k < n; ++k) {
+                    auto rot1 = U[{k, i}];
+                    auto rot2 = U[{k, j}];
+                    U[{k, i}] = c * rot1 - s * rot2;
+                    U[{k, j}] = s * rot1 + c * rot2;
+                }
+
+                for (std::size_t k = 0; k < n; ++k) {
+                    auto rot1 = V[{k, i}];
+                    auto rot2 = V[{k, j}];
+                    V[{k, i}] = c * rot1 - s * rot2;
+                    V[{k, j}] = s * rot1 + c * rot2;
+                }
+                float curr_ratio = std::abs(c) / ratio_denom(alpha, beta);
+                max_ratio = std::max(max_ratio, curr_ratio);
+            }
+        }
+        if (max_ratio < conv_criterion) {
+            break;
+        }
+    }
+
+    auto comp = [](const auto& p1, const auto& p2) {
+        return std::abs(p1.first) < std::abs(p2.first);
+    };
+
+    std::priority_queue<std::pair<B, std::size_t>,
+            std::vector<std::pair<B, std::size_t>>,
+            decltype(comp)> pq(comp);
+    for (std::size_t j = 0; j < m; ++j) {
+        auto rj = U.row(j);
+        Sigma[{j, j}] = std::sqrt(dot_func(rj, rj));
+        if (Sigma[{j, j}] != B{0}) {
+            rj /= Sigma[{j, j}];
+        }
+        pq.emplace(Sigma[{j, j}], j);
+    }
+    if (trunc > std::min(m, n)) {
+        trunc = std::min(m, n);
+    }
+    Mat <B> U_ = zeros<B, 2>({m, trunc});
+    Mat <B> Sigma_ = zeros<B, 2>({trunc, trunc});
+    Mat <B> V_ = zeros<B, 2>({n, trunc});
+    for (std::size_t i = 0; i < trunc; ++i) {
+        auto [val, idx] = pq.top();
+        pq.pop();
+        std::swap_ranges(std::execution::par_unseq, U_.col(i).begin(), U_.col(i).end(), U.col(idx).begin());
+        Sigma_[{i, i}] = Sigma[{idx, idx}];
+        std::swap_ranges(std::execution::par_unseq, V_.col(i).begin(), V_.col(i).end(), V.col(idx).begin());
+    }
+    return {U_, Sigma_, V_};
+}
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+std::tuple<Mat<B>, Mat<B>, Mat<B>> SVD(const MatrixBase<Derived, A, 2>& mat) {
+    std::size_t m = mat.dims(0);
+    std::size_t n = mat.dims(1);
+    return SVD(mat, std::min(m, n));
 }
 
 } // namespace frozenca
