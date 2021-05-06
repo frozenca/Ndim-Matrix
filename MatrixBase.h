@@ -196,7 +196,7 @@ public:
         if (i >= dims(0) || j >= dims(0)) {
             throw std::out_of_range("Out of range in swapRows");
         }
-        std::ranges::swap_ranges(row(i), row(j));
+        std::swap_ranges(std::execution::par_unseq, row(i).begin(), row(i).end(), row(j).begin());
         return *this;
     }
 
@@ -204,7 +204,7 @@ public:
         if (i >= dims(N - 1) || j >= dims(N - 1)) {
             throw std::out_of_range("Out of range in swapCols");
         }
-        std::ranges::swap_ranges(col(i), col(j));
+        std::swap_ranges(std::execution::par_unseq, col(i).begin(), col(i).end(), col(j).begin());
         return *this;
     }
 
@@ -561,7 +561,7 @@ public:
         if (i >= dims_ || j >= dims_) {
             throw std::out_of_range("Out of range in swapRows");
         }
-        std::ranges::swap_ranges(row(i), row(j));
+        std::swap(row(i), row(j));
         return *this;
     }
 

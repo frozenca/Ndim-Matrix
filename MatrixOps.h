@@ -41,42 +41,42 @@ Matrix<T, 2> identity(std::size_t n) {
 template <OneExists T, std::size_t N>
 Matrix<T, N> ones(const std::array<std::size_t, N>& arr) {
     Matrix<T, N> mat (arr);
-    std::ranges::fill(mat, T{1});
+    std::fill(std::execution::par_unseq, std::begin(mat), std::end(mat), T{1});
     return mat;
 }
 
 template <typename Derived, OneExists T, std::size_t N>
 Matrix<T, N> ones_like(const MatrixBase<Derived, T, N>& base) {
     Matrix<T, N> mat (base.dims());
-    std::ranges::fill(mat, T{1});
+    std::fill(std::execution::par_unseq, std::begin(mat), std::end(mat), T{1});
     return mat;
 }
 
 template <std::semiregular T, std::size_t N>
 Matrix<T, N> zeros(const std::array<std::size_t, N>& arr) {
     Matrix<T, N> mat (arr);
-    std::ranges::fill(mat, T{0});
+    std::fill(std::execution::par_unseq, std::begin(mat), std::end(mat), T{0});
     return mat;
 }
 
 template <typename Derived, std::semiregular T, std::size_t N>
 Matrix<T, N> zeros_like(const MatrixBase<Derived, T, N>& base) {
     Matrix<T, N> mat (base.dims());
-    std::ranges::fill(mat, T{0});
+    std::fill(std::execution::par_unseq, std::begin(mat), std::end(mat), T{0});
     return mat;
 }
 
 template <std::semiregular T, std::size_t N>
 Matrix<T, N> full(const std::array<std::size_t, N>& arr, const T& fill_value) {
     Matrix<T, N> mat (arr);
-    std::ranges::fill(mat, fill_value);
+    std::fill(std::execution::par_unseq, std::begin(mat), std::end(mat), fill_value);
     return mat;
 }
 
 template <typename Derived, std::semiregular T, std::size_t N>
 Matrix<T, N> full_like(const MatrixBase<Derived, T, N>& base, const T& fill_value) {
     Matrix<T, N> mat (base.dims());
-    std::ranges::fill(mat, fill_value);
+    std::fill(std::execution::par_unseq, std::begin(mat), std::end(mat), fill_value);
     return mat;
 }
 
