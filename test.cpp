@@ -8,12 +8,12 @@
 namespace fc = frozenca;
 
 int main() {
-    fc::Mat<float> A{{4, 1, -2, 2},
-                     {1, 2, 0, 1},
-                     {-2, 0, 3, -2},
-                     {2, 1, -2, -1}};
+    fc::Mat<float> A{{-2, 2, 3, 4},
+                     {-9, 7, 5, 5},
+                     {-5, 2, 6, 6},
+                     {-7, 2, 8, 9}};
 
-    auto H = Hessenberg(A, true);
+    auto H = fc::eig(A);
 
     std::cout << H << '\n';
 
