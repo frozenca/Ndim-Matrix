@@ -8,28 +8,14 @@
 namespace fc = frozenca;
 
 int main() {
-    {
-        fc::Mat<float> A{{1, 0, 0, 0, 2},
-                         {0, 0, 3, 0, 0},
-                         {0, 0, 0, 0, 0},
-                         {0, 2, 0, 0, 0}};
+    fc::Mat<float> A{{4, 1, -2, 2},
+                     {1, 2, 0, 1},
+                     {-2, 0, 3, -2},
+                     {2, 1, -2, -1}};
 
-        auto[U, Sigma, V] = fc::SVD(A);
-        std::cout << U << '\n';
-        std::cout << Sigma << '\n';
-        std::cout << V << '\n';
-    }
-    {
-        fc::Mat<std::complex<float>> A{{1, 0, 0, 0, 2},
-                         {0, 0, 3, 0, 0},
-                         {0, 0, 0, 0, 0},
-                         {0, 2, 0, 0, 0}};
+    auto H = Hessenberg(A, true);
 
-        auto[U, Sigma, V] = fc::SVD(A);
-        std::cout << U << '\n';
-        std::cout << Sigma << '\n';
-        std::cout << V << '\n';
-    }
+    std::cout << H << '\n';
 
 
 

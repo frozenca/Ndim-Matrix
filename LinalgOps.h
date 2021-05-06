@@ -42,6 +42,20 @@ void DotTo(MatrixView<T, 1>& m,
     }
 }
 
+template <std::semiregular U, std::semiregular V, std::semiregular T>
+requires DotProductableTo<U, V, T>
+void DotTo(MatrixView<T, 1>& m,
+           const MatrixView<U, 2>& m1,
+           const MatrixView<V, 1>& m2) {
+    assert(m.dims(0) == m1.dims(0));
+    std::size_t r = m1.dims(1);
+    for (std::size_t j = 0; j < r; ++j) {
+        auto row1 = m1.row(j);
+        m[j] += std::transform_reduce(std::execution::par_unseq,
+                                      std::begin(row1), std::end(row1), std::begin(m2), T{0});
+    }
+}
+
 template <std::semiregular U, std::semiregular V, std::semiregular T, std::size_t N2>
 requires DotProductableTo<U, V, T> && (N2 > 2)
 void DotTo(MatrixView<T, N2 - 1>& m,
@@ -73,7 +87,7 @@ void DotTo(MatrixView<T, N1 - 1>& m,
 
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2>
-requires DotProductableTo<U, V, T> && (N1 > 1) && (N2 > 1)
+requires DotProductableTo<U, V, T> && (N1 + N2 > 2)
 void DotTo(MatrixView<T, N1 + N2 - 2>& m,
            const MatrixView<U, N1>& m1,
            const MatrixView<V, N2>& m2) {
@@ -89,7 +103,7 @@ void DotTo(MatrixView<T, N1 + N2 - 2>& m,
 template <typename Derived0, typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2>
-requires DotProductableTo<U, V, T>
+requires DotProductableTo<U, V, T> && (N1 + N2 > 2)
 void DotTo(MatrixBase<Derived0, T, (N1 + N2 - 2)>& m,
            const MatrixBase<Derived1, U, N1>& m1,
            const MatrixBase<Derived2, V, N2>& m2) {
@@ -109,7 +123,6 @@ void DotTo(T& m,
     MatrixView<V, 1> m2_view (m2);
     DotTo(m, m1_view, m2_view);
 }
-
 
 template <typename Derived1, typename Derived2,
         isComplex U, isComplex V, isComplex T>
@@ -147,6 +160,48 @@ decltype(auto) dot(const MatrixBase<Derived1, U, M>& m1, const MatrixBase<Derive
     return res;
 }
 
+// (m x n) x (n x 1)
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
+decltype(auto) dot(const MatrixBase<Derived1, U, 2>& m1, const MatrixBase<Derived2, V, 1>& m2) {
+    if (m1.dims(1) != m2.dims(0)) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    Vec<T> res (m1.dims(0));
+    DotTo(res, m1, m2);
+    return res;
+}
+
+// (1 x m) x (m x n)
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
+decltype(auto) dot(const MatrixBase<Derived2, V, 1>& m1, const MatrixBase<Derived1, U, 2>& m2) {
+    if (m1.dims(0) != m2.dims(0)) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    Vec<T> res (m2.dims(1));
+    DotTo(res, m1, m2);
+    return res;
+}
+
+// (m x 1) x (1 x n)
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
+decltype(auto) outer(const MatrixBase<Derived2, V, 1>& m1, const MatrixBase<Derived1, U, 1>& m2) {
+    std::size_t m = m1.dims(0);
+    std::size_t n = m2.dims(0);
+    Mat<T> res (m, n);
+    for (std::size_t i = 0; i < m; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            res[{i, j}] = m1[i] * m2[j];
+        }
+    }
+    return res;
+}
+
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
         std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
@@ -156,6 +211,32 @@ decltype(auto) dot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derive
     }
     T res {0};
     DotTo(res, m1, m2);
+    return res;
+}
+
+// (m x n) x (n x 1)
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
+decltype(auto) compdot(const MatrixBase<Derived1, U, 2>& m1, const MatrixBase<Derived2, V, 1>& m2) {
+    if (m1.dims(1) != m2.dims(0)) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    Vec<T> res (m1.dims(0));
+    CompDotTo(res, m1, m2);
+    return res;
+}
+
+// (1 x m) x (m x n)
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
+decltype(auto) compdot(const MatrixBase<Derived2, V, 1>& m1, const MatrixBase<Derived1, U, 2>& m2) {
+    if (m1.dims(0) != m2.dims(0)) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    Vec<T> res (m2.dims(1));
+    CompDotTo(res, m1, m2);
     return res;
 }
 
@@ -432,22 +513,19 @@ B norm(const MatrixBase<Derived, A, 1>& vec, std::size_t p = 2) {
     if (p == 0) {
         throw std::invalid_argument("Norm is undefined");
     } else if (p == 1) {
-        return std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec), B{0}, [](B accu, B val) {
-            return accu + std::abs(val);
-        });
+        return std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
+                           B{0}, [](B accu, B val) { return accu + std::abs(val); });
     }
-    B pow_sum = std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec), B{0}, [&p](B accu, B val) {
-        return accu + std::pow(val, p);
-    });
+    B pow_sum = std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
+                            B{0}, [&p](B accu, B val) { return accu + std::pow(val, p); });
     return std::pow(pow_sum, 1.0f / static_cast<float>(p));
 }
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
 B norm(const MatrixBase<Derived, A, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
     if (p == 2 && q == 2) { // Frobenius norm
-        B pow_sum = std::reduce(std::execution::par_unseq, std::begin(mat), std::end(mat), B{0}, [](B accu, A val) {
-            return accu + std::pow(val, 2.0f);
-        });
+        B pow_sum = std::reduce(std::execution::par_unseq, std::begin(mat), std::end(mat),
+                                B{0}, [](B accu, A val) { return accu + std::pow(val, 2.0f); });
         return std::sqrt(pow_sum);
     }
     std::size_t R = mat.dims(0);
@@ -500,7 +578,7 @@ std::pair<Mat<B>, Mat<B>> QR(const MatrixBase<Derived, A, 2>& mat) {
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
 std::tuple<Mat<B>, Mat<B>, Mat<B>> SVD(const MatrixBase<Derived, A, 2>& mat, std::size_t trunc) {
     constexpr float conv_criterion = 1e-6;
-    constexpr std::size_t max_iter = 1'000;
+    constexpr std::size_t max_iter = 100;
 
     std::size_t iter = 0;
     std::size_t m = mat.dims(0);
@@ -509,7 +587,7 @@ std::tuple<Mat<B>, Mat<B>, Mat<B>> SVD(const MatrixBase<Derived, A, 2>& mat, std
     Mat<B> Sigma = zeros<B, 2>({n, n});
     Mat<B> V = identity<B>(n);
     auto dot_func = [&](auto& ri, auto& rj){
-        if constexpr (isComplex<A> || isComplex<B>) {
+        if constexpr (isComplex<A>) {
             return compdot(ri, rj);
         } else {
             return dot(ri, rj);
@@ -517,7 +595,7 @@ std::tuple<Mat<B>, Mat<B>, Mat<B>> SVD(const MatrixBase<Derived, A, 2>& mat, std
     };
 
     auto compute_zeta = [&](const auto& alpha, const auto& beta, const auto& gamma){
-        if constexpr (isComplex<A> || isComplex<B>) {
+        if constexpr (isComplex<A>) {
             return std::real(beta - alpha) / std::real(gamma + std::conj(gamma));
         } else {
             return (beta - alpha) / (2.0f * gamma);
@@ -525,7 +603,7 @@ std::tuple<Mat<B>, Mat<B>, Mat<B>> SVD(const MatrixBase<Derived, A, 2>& mat, std
     };
 
     auto ratio_denom = [&](const auto& alpha, const auto& beta) {
-        if constexpr (isComplex<A> || isComplex<B>) {
+        if constexpr (isComplex<A>) {
             return std::sqrt(std::real(beta * alpha));
         } else {
             return std::sqrt(beta * alpha);
@@ -605,6 +683,86 @@ std::tuple<Mat<B>, Mat<B>, Mat<B>> SVD(const MatrixBase<Derived, A, 2>& mat) {
     std::size_t m = mat.dims(0);
     std::size_t n = mat.dims(1);
     return SVD(mat, std::min(m, n));
+}
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+Vec<B> Householder(const MatrixBase<Derived, A, 1>& vec) {
+    Vec<B> u = vec;
+    B v1 = vec[0];
+    auto sign = std::signbit(v1) ? -1 : +1;
+    auto v_norm = norm(vec);
+    u[0] += sign * v_norm * v1;
+    auto u_norm = norm(u);
+    u /= u_norm;
+    return u;
+}
+
+template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
+Mat<B> Hessenberg(const MatrixBase<Derived, A, 2>& mat, bool both = false) {
+    std::size_t n = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square matrix, cannot transform to Hessenberg");
+    }
+    if (n < 3) {
+        return mat;
+    }
+
+    auto conjif = [&](const auto& v) {
+        if constexpr (isComplex<A>) {
+            return conj(v);
+        } else {
+            return v;
+        }
+    };
+
+    Mat<B> H = mat;
+
+    if (both) { // we want both upper and lower Hessenberg! (tridiagonal)
+        for (std::size_t k = 0; k < n - 1; ++k) {
+            // erase below subdiagonal
+            // (n - k - 1) x 1
+            auto ck1 = H.col(k).submatrix(k + 1);
+            auto vk1 = Householder(ck1);
+
+            // apply Householder from the left
+            // (n - k - 1) x (n - k)
+            // H[k + 1 : n, k : n] -= 2 v_k1 v_k1^T H[k + 1 : n, k : n]
+            auto Sub1 = H.submatrix({k + 1, k});
+            Sub1 -= outer(vk1, dot(2.0f * conjif(vk1), Sub1));
+
+            // erase right of superdiagonal
+            // (n - k - 1) x 1
+            auto ck2 = H.row(k).submatrix(k + 1);
+            auto vk2 = Householder(ck2);
+
+            // apply Householder from the right
+            // (n - k) x (n - k - 1)
+            // H[k : n, k + 1 : n] -= 2 H[k : n, k + 1 : n] v_k2 v_k2^T
+            auto Sub2 = H.submatrix({k, k + 1});
+            Sub2 -= outer(dot(Sub2, 2.0f * vk2), conjif(vk2));
+        }
+    } else {
+        for (std::size_t k = 0; k < n - 2; ++k) {
+            // (n - k - 1) x 1
+            auto ck = H.col(k).submatrix(k + 1);
+            auto vk = Householder(ck);
+
+            // apply Householder from the left
+            // (n - k - 1) x (n - k)
+            // H[k + 1 : n, k : n] -= 2 v_k v_k^T H[k + 1 : n, k : n]
+            auto Sub1 = H.submatrix({k + 1, k});
+            Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
+
+            // apply Householder from the right
+            // n x (n - k - 1)
+            // H[0 : n, k + 1 : n] -= 2 H[0 : n, k + 1 : n] v_k v_k^T
+            auto Sub2 = H.submatrix({0, k + 1});
+            Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
+        }
+    }
+
+    return H;
 }
 
 } // namespace frozenca

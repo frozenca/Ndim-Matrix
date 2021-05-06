@@ -177,14 +177,14 @@ public:
                                            F&& f);
 
     template <typename DerivedOther, std::semiregular U> requires Addable<T, U>
-    MatrixBase& operator+=(const MatrixBase<DerivedOther, U, 1>& other) {
+    MatrixBase& operator+=(const MatrixBase<DerivedOther, U, N>& other) {
         std::transform(std::execution::par_unseq, begin(), end(), other.begin(),
                        begin(), std::plus<>{});
         return *this;
     }
 
     template <typename DerivedOther, std::semiregular U> requires Subtractable<T, U>
-    MatrixBase& operator-=(const MatrixBase<DerivedOther, U, 1>& other) {
+    MatrixBase& operator-=(const MatrixBase<DerivedOther, U, N>& other) {
         std::transform(std::execution::par_unseq, begin(), end(), other.begin(),
                        begin(), std::minus<>{});
         return *this;
@@ -598,7 +598,14 @@ MatrixView<T, 1> MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin,
     if (pos_begin >= pos_end) {
         throw std::out_of_range("submatrix begin/end position error");
     }
-    MatrixView<T, 1> view ({pos_end - pos_begin}, const_cast<T*>(&operator[](pos_begin)), {strides_});
+    auto realStrides = [&](){
+        if constexpr (std::is_same_v<Derived, MatrixView<T, 1>>) {
+            return origStrides();
+        } else {
+            return strides();
+        }
+    };
+    MatrixView<T, 1> view ({pos_end - pos_begin}, const_cast<T*>(&operator[](pos_begin)), {realStrides()});
     return view;
 }
 
