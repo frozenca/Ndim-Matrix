@@ -765,6 +765,116 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
     return H;
 }
 
+namespace {
+
+template <isScalar T>
+std::pair<T, T> Rayleigh(const T& a, const T& b, const T& c, const T& d) {
+    auto tr = a + d;
+    auto dt = a * d - b * c;
+    auto sq = tr * tr - 4.0f * dt;
+    if (sq > 0) { // real eigenvalues
+        auto root1 = (tr + std::sqrt(sq)) / 2.0f;
+        auto root2 = (tr - std::sqrt(sq)) / 2.0f;
+
+        // choose the one closer to d
+        auto root = (std::abs(root1 - d) < std::abs(root2 - d)) ? root1 : root2;
+
+        // z^2 + bz + c = (z-r)^2
+        return {-2.0f * root, root * root};
+    } else { // complex eigenvalues, we want char poly directly.
+        return {-tr, dt};
+    }
+}
+
+// QR algorithm used in eigendecomposition.
+// not to be confused with QR decomposition
+template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+Mat<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
+    // assumption : mat is (upper) Hessenberg
+
+    std::size_t n = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square matrix, cannot do QR iteration");
+    }
+    assert(n > 3); // n <= 3 are handled analytically
+
+    constexpr float conv_criterion = 1e-8;
+
+    auto conjif = [&](const auto& v) {
+        if constexpr (isComplex<U>) {
+            return conj(v);
+        } else {
+            return v;
+        }
+    };
+
+    Mat<T> H = mat;
+    std::size_t p = n; // effective matrix size.
+    while (p > 2) {
+        auto s = H[{p - 2, p - 2}] + H[{p - 1, p - 1}];
+        auto t = H[{p - 2, p - 2}] * H[{p - 1, p - 1}] - H[{p - 2, p - 1}] * H[{p - 1, p - 2}];
+
+        // compute first 3 elements of first column
+        auto x = H[{0, 0}] * H[{0, 0}] + H[{0, 1}] * H[{1, 0}] - s * H[{0, 0}] + t;
+        auto y = H[{1, 0}] * (H[{0, 0}] + H[{1, 1}] - s);
+        auto z = H[{1, 0}] * H[{2, 1}];
+
+        // repeatedly apply Householder
+        for (std::size_t k = 0; k < p - 2; ++k) {
+            Vec<T> v {x, y, z};
+            auto vk = Householder(v);
+
+            std::size_t r = (k == 0) ? 0 : (k - 1);
+            auto Sub1 = H.submatrix({k, r}, {k + 3, n});
+            Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
+
+            r = std::min(k + 4, p);
+            auto Sub2 = H.submatrix({0, k}, {r, k + 3});
+            Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
+
+            x = H[{k + 1, k}];
+            y = H[{k + 2, k}];
+            if (k < p - 3) {
+                z = H[{k + 3, k}];
+            }
+        }
+
+        // for last x and y, find Givens rotation
+        auto rad = std::hypot(x, y);
+        auto cos_val = x / rad;
+        auto sin_val = y / rad;
+        Mat<T> R {{cos_val, sin_val}, {-sin_val, cos_val}};
+        Mat<T> RT {{cos_val, -sin_val}, {sin_val, cos_val}};
+
+        auto Sub1 = H.submatrix({p - 2, p - 3}, {p, n});
+        Sub1 = dot(RT, Sub1);
+        auto Sub2 = H.submatrix({0, p - 2}, {p, p});
+        Sub2 = dot(Sub2, R);
+
+        // check convergence, deflate if necessary
+        if (std::abs(H[{p - 1, p - 2}]) < conv_criterion *
+           (std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]))) {
+            H[{p - 1, p - 2}] = T{0};
+            p -= 1;
+        } else if (std::abs(H[{p - 2, p - 3}]) < conv_criterion *
+           (std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]))) {
+            H[{p - 2, p - 3}] = T{0};
+            p -= 2;
+        }
+    }
+    return H;
+}
+
+} // anonymous namespace
+
+template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+Mat<T> eig(const MatrixBase<Derived, U, 2>& mat) {
+    auto H = Hessenberg(mat);
+    std::cout << H << '\n';
+    auto Diag = QRIteration(H);
+    return Diag;
+}
 
 } // namespace frozenca
 
