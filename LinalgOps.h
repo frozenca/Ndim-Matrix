@@ -34,7 +34,7 @@ void DotTo(MatrixView<T, 1>& m,
            const MatrixView<U, 1>& m1,
            const MatrixView<V, 2>& m2) {
     assert(m.dims(0) == m2.dims(1));
-    std::size_t c = m2.dims(1);
+    std::size_t c = m.dims(0);
     for (std::size_t j = 0; j < c; ++j) {
         auto col2 = m2.col(j);
         m[j] += std::transform_reduce(std::execution::par_unseq,
@@ -48,7 +48,7 @@ void DotTo(MatrixView<T, 1>& m,
            const MatrixView<U, 2>& m1,
            const MatrixView<V, 1>& m2) {
     assert(m.dims(0) == m1.dims(0));
-    std::size_t r = m1.dims(1);
+    std::size_t r = m.dims(0);
     for (std::size_t j = 0; j < r; ++j) {
         auto row1 = m1.row(j);
         m[j] += std::transform_reduce(std::execution::par_unseq,
@@ -719,26 +719,21 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
     Mat<T> H = mat;
 
     if (both) { // we want both upper and lower Hessenberg! (tridiagonal)
+        // Note: the original matrix should be symmetric in this case.
         for (std::size_t k = 0; k < n - 1; ++k) {
             // erase below subdiagonal
-            // (n - k - 1) x 1
             auto ck1 = H.col(k).submatrix(k + 1);
             auto vk1 = Householder(ck1);
 
             // apply Householder from the left
-            // (n - k - 1) x (n - k)
-            // H[k + 1 : n, k : n] -= 2 v_k1 v_k1^T H[k + 1 : n, k : n]
             auto Sub1 = H.submatrix({k + 1, k});
             Sub1 -= outer(vk1, dot(2.0f * conjif(vk1), Sub1));
 
             // erase right of superdiagonal
-            // (n - k - 1) x 1
             auto ck2 = H.row(k).submatrix(k + 1);
             auto vk2 = Householder(ck2);
 
             // apply Householder from the right
-            // (n - k) x (n - k - 1)
-            // H[k : n, k + 1 : n] -= 2 H[k : n, k + 1 : n] v_k2 v_k2^T
             auto Sub2 = H.submatrix({k, k + 1});
             Sub2 -= outer(dot(Sub2, 2.0f * vk2), conjif(vk2));
         }
@@ -749,14 +744,10 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
             auto vk = Householder(ck);
 
             // apply Householder from the left
-            // (n - k - 1) x (n - k)
-            // H[k + 1 : n, k : n] -= 2 v_k v_k^T H[k + 1 : n, k : n]
             auto Sub1 = H.submatrix({k + 1, k});
             Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
 
             // apply Householder from the right
-            // n x (n - k - 1)
-            // H[0 : n, k + 1 : n] -= 2 H[0 : n, k + 1 : n] v_k v_k^T
             auto Sub2 = H.submatrix({0, k + 1});
             Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
         }
@@ -799,7 +790,7 @@ Mat<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
     }
     assert(n > 3); // n <= 3 are handled analytically
 
-    constexpr float conv_criterion = 1e-8;
+    constexpr float conv_criterion = 1e-5;
 
     auto conjif = [&](const auto& v) {
         if constexpr (isComplex<U>) {
@@ -812,8 +803,8 @@ Mat<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
     Mat<T> H = mat;
     std::size_t p = n; // effective matrix size.
     while (p > 2) {
-        auto s = H[{p - 2, p - 2}] + H[{p - 1, p - 1}];
-        auto t = H[{p - 2, p - 2}] * H[{p - 1, p - 1}] - H[{p - 2, p - 1}] * H[{p - 1, p - 2}];
+        auto [s, t] = Rayleigh(H[{p - 2, p - 2}], H[{p - 2, p - 1}],
+                               H[{p - 1, p - 2}], H[{p - 1, p - 1}]);
 
         // compute first 3 elements of first column
         auto x = H[{0, 0}] * H[{0, 0}] + H[{0, 1}] * H[{1, 0}] - s * H[{0, 0}] + t;
@@ -854,11 +845,11 @@ Mat<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
 
         // check convergence, deflate if necessary
         if (std::abs(H[{p - 1, p - 2}]) < conv_criterion *
-           (std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]))) {
+           (std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
             H[{p - 1, p - 2}] = T{0};
             p -= 1;
         } else if (std::abs(H[{p - 2, p - 3}]) < conv_criterion *
-           (std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]))) {
+           (std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
             H[{p - 2, p - 3}] = T{0};
             p -= 2;
         }
@@ -869,9 +860,8 @@ Mat<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
 } // anonymous namespace
 
 template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
-Mat<T> eig(const MatrixBase<Derived, U, 2>& mat) {
+Mat<T> eigen(const MatrixBase<Derived, U, 2>& mat) {
     auto H = Hessenberg(mat);
-    std::cout << H << '\n';
     auto Diag = QRIteration(H);
     return Diag;
 }
