@@ -177,18 +177,16 @@ public:
                                            F&& f);
 
     template <typename DerivedOther, std::semiregular U> requires Addable<T, U>
-    MatrixBase& operator+=(const MatrixBase<DerivedOther, U, N>& other) {
-        for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
-            *it += static_cast<T>(*it2);
-        }
+    MatrixBase& operator+=(const MatrixBase<DerivedOther, U, 1>& other) {
+        std::transform(std::execution::par_unseq, begin(), end(), other.begin(),
+                       begin(), std::plus<>{});
         return *this;
     }
 
     template <typename DerivedOther, std::semiregular U> requires Subtractable<T, U>
-    MatrixBase& operator-=(const MatrixBase<DerivedOther, U, N>& other) {
-        for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
-            *it -= static_cast<T>(*it2);
-        }
+    MatrixBase& operator-=(const MatrixBase<DerivedOther, U, 1>& other) {
+        std::transform(std::execution::par_unseq, begin(), end(), other.begin(),
+                       begin(), std::minus<>{});
         return *this;
     }
 
@@ -543,17 +541,15 @@ public:
 
     template <typename DerivedOther, std::semiregular U> requires Addable<T, U>
     MatrixBase& operator+=(const MatrixBase<DerivedOther, U, 1>& other) {
-        for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
-            *it += static_cast<T>(*it2);
-        }
+        std::transform(std::execution::par_unseq, begin(), end(), other.begin(),
+                       begin(), std::plus<>{});
         return *this;
     }
 
     template <typename DerivedOther, std::semiregular U> requires Subtractable<T, U>
     MatrixBase& operator-=(const MatrixBase<DerivedOther, U, 1>& other) {
-        for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
-            *it -= static_cast<T>(*it2);
-        }
+        std::transform(std::execution::par_unseq, begin(), end(), other.begin(),
+                       begin(), std::minus<>{});
         return *this;
     }
 

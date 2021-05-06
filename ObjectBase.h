@@ -1,6 +1,7 @@
 #ifndef FROZENCA_OBJECTBASE_H
 #define FROZENCA_OBJECTBASE_H
 
+#include <execution>
 #include <functional>
 #include <utility>
 #include "MatrixUtils.h"
@@ -110,9 +111,7 @@ public:
 template <typename Derived>
 template <typename F> requires std::invocable<F, typename Derived::reference>
 ObjectBase<Derived>& ObjectBase<Derived>::applyFunction(F&& f) {
-    for (auto it = begin(); it != end(); ++it) {
-        f(*it);
-    }
+    std::for_each(std::execution::par_unseq, begin(), end(), f);
     return *this;
 }
 

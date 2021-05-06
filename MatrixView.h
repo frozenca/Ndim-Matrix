@@ -273,9 +273,7 @@ MatrixView<T, N>::MatrixView(const MatrixBase<DerivedOther, U, N>& other) : Base
 template <std::semiregular T, std::size_t N>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, N>& MatrixView<T, N>::operator=(const MatrixBase<DerivedOther, U, N>& other) {
-    for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
-        *it = static_cast<T>(*it2);
-    }
+    std::copy(std::execution::par_unseq, begin(), end(), std::begin(other));
     return *this;
 }
 
@@ -508,9 +506,7 @@ MatrixView<T, 1>::MatrixView(const MatrixBase<DerivedOther, U, 1>& other) : Base
 template <std::semiregular T>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
 MatrixView<T, 1>& MatrixView<T, 1>::operator=(const MatrixBase<DerivedOther, U, 1>& other) {
-    for (auto it = begin(), it2 = other.begin(); it != end(); ++it, ++it2) {
-        *it = static_cast<T>(*it2);
-    }
+    std::copy(std::execution::par_unseq, begin(), end(), std::begin(other));
     return *this;
 }
 
