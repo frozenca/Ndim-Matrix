@@ -24,6 +24,10 @@ public:
     using Base::operator*=;
     using Base::operator/=;
     using Base::operator%=;
+    using value_type = T;
+    using reference = T&;
+    using const_reference = const T&;
+    using pointer = T*;
 
     using iterator = T*;
     using const_iterator = const T*;
@@ -167,6 +171,10 @@ public:
     using Base::operator*=;
     using Base::operator/=;
     using Base::operator%=;
+    using value_type = T;
+    using reference = T&;
+    using const_reference = const T&;
+    using pointer = T*;
 
     friend void swap(Matrix& a, Matrix& b) noexcept {
         swap(static_cast<Base&>(a), static_cast<Base&>(b));

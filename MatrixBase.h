@@ -87,30 +87,6 @@ public:
     auto rend() const { return self().rend(); }
     auto crend() const { return self().crend(); }
 
-    template <IndexType... Args>
-    reference operator()(Args... args) {
-        return const_cast<reference>(std::as_const(*this).operator()(args...));
-    }
-
-    template <IndexType... Args>
-    const_reference operator()(Args... args) const {
-        static_assert(sizeof...(args) == N);
-        std::array<std::size_t, N> pos {std::size_t(args)...};
-        return operator[](pos);
-    }
-
-    reference operator[](const std::array<std::size_t, N>& pos) {
-        return const_cast<reference>(std::as_const(*this).operator[](pos));
-    }
-
-    const_reference operator[](const std::array<std::size_t, N>& pos) const {
-        if (!std::equal(std::cbegin(pos), std::cend(pos), std::cbegin(dims_), std::less<>{})) {
-            throw std::out_of_range("Out of range in element access");
-        }
-        return *(cbegin() + std::transform_reduce(std::execution::par_unseq,
-                                                  std::cbegin(pos), std::cend(pos), std::cbegin(strides_), 0lu));
-    }
-
     [[nodiscard]] std::size_t size() const { return size_;}
 
     [[nodiscard]] const std::array<std::size_t, N>& dims() const {
@@ -141,6 +117,27 @@ public:
 
     auto origStrides() const {
         return self().origStrides();
+    }
+
+    template <IndexType... Args>
+    reference operator()(Args... args) {
+        return const_cast<reference>(std::as_const(*this).operator()(args...));
+    }
+
+    template <IndexType... Args>
+    const_reference operator()(Args... args) const {
+        static_assert(sizeof...(args) == N);
+        std::array<std::size_t, N> pos {std::size_t(args)...};
+        return operator[](pos);
+    }
+
+    reference operator[](const std::array<std::size_t, N>& pos) {
+        return const_cast<reference>(std::as_const(*this).operator[](pos));
+    }
+
+    const_reference operator[](const std::array<std::size_t, N>& pos) const {
+        return *(cbegin() + std::transform_reduce(std::execution::par_unseq,
+                                                  std::cbegin(pos), std::cend(pos), std::cbegin(strides()), 0lu));
     }
 
     MatrixView<T, N> submatrix(const std::array<std::size_t, N>& pos_begin);
@@ -270,7 +267,14 @@ MatrixView<T, N> MatrixBase<Derived, T, N>::submatrix(const std::array<std::size
     }
     std::array<std::size_t, N> view_dims;
     std::ranges::transform(pos_end, pos_begin, std::begin(view_dims), std::minus<>{});
-    MatrixView<T, N> view(view_dims, const_cast<T*>(&operator[](pos_begin)), strides());
+    auto realStrides = [&](){
+        if constexpr (std::is_same_v<Derived, MatrixView<T, N>>) {
+            return origStrides();
+        } else {
+            return strides();
+        }
+    };
+    MatrixView<T, N> view(view_dims, const_cast<T*>(&operator[](pos_begin)), realStrides());
     return view;
 }
 
@@ -491,17 +495,33 @@ public:
         return self().origStrides();
     }
 
+    template <IndexType Dim>
+    reference operator()(Dim dim) {
+        return const_cast<reference>(std::as_const(*this).operator()(dim));
+    }
+
+    template <IndexType Dim>
+    const_reference operator()(Dim dim) const {
+        return operator[](dim);
+    }
+
+    reference operator[](std::size_t pos) {
+        return const_cast<reference>(std::as_const(*this).operator[](pos));
+    }
+
+    const_reference operator[](std::size_t pos) const {
+        return *(cbegin() + pos);
+    }
+
     MatrixView<T, 1> submatrix(std::size_t pos_begin);
     MatrixView<T, 1> submatrix(std::size_t pos_begin, std::size_t pos_end);
     T& row(std::size_t n);
     T& col(std::size_t n);
-    T& operator[](std::size_t n) { return *(begin() + n); }
 
     MatrixView<T, 1> submatrix(std::size_t pos_begin) const;
     MatrixView<T, 1> submatrix(std::size_t pos_begin, std::size_t pos_end) const;
     const T& row(std::size_t n) const;
     const T& col(std::size_t n) const;
-    const T& operator[](std::size_t n) const { return *(cbegin() + n); }
 
     friend std::ostream& operator<<(std::ostream& os, const MatrixBase& m) {
         os << '{';

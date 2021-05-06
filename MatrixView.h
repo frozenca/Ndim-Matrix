@@ -25,6 +25,10 @@ public:
     using Base::operator*=;
     using Base::operator/=;
     using Base::operator%=;
+    using value_type = T;
+    using reference = T&;
+    using const_reference = const T&;
+    using pointer = T*;
 
     ~MatrixView() noexcept = default;
 
@@ -200,7 +204,7 @@ public:
     // oh no.. *why* defining operator<=> doesn't work to automatically define these in gcc?
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
     friend bool operator==(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
-        return it1.pos_ == it2.pos_;
+        return it1.ptr_ == it2.ptr_ && it1.index_ == it2.index_;
     }
 
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
@@ -293,6 +297,10 @@ public:
     using Base::operator*=;
     using Base::operator/=;
     using Base::operator%=;
+    using value_type = T;
+    using reference = T&;
+    using const_reference = const T&;
+    using pointer = T*;
 
     ~MatrixView() noexcept = default;
 
@@ -432,7 +440,7 @@ public:
     // oh no.. *why* defining operator<=> doesn't work to automatically define these in gcc?
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>
     friend bool operator==(const MVIterator<T1>& it1, const MVIterator<T2>& it2) {
-        return it1.pos_ == it2.pos_;
+        return it1.ptr_ == it2.ptr_ && it1.index_ == it2.index_;
     }
 
     template <typename T1, typename T2> requires std::is_same_v<std::remove_cv_t<T1>, std::remove_cv_t<T2>>

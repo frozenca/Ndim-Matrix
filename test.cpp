@@ -1,41 +1,24 @@
 #include "Matrix.h"
+#include <chrono>
 #include <iostream>
+#include <random>
 #include <numeric>
 
 namespace fc = frozenca;
 
 int main() {
-    fc::Mat<float> A {{2, 0, 2, 0.6},
-                      {3, 3, 4, -2},
-                      {5, 5, 4, 2},
-                      {-1, -2, 3.4, -1}};
+    fc::Mat<float> A {{1, 1, 1, 1, 1, 1},
+                      {32, 16, 8, 4, 2, 1},
+                      {243, 81, 27, 9, 3, 1},
+                      {1024, 256, 64, 16, 4, 1},
+                      {3125, 625, 125, 25, 5, 1},
+                      {7776, 1296, 216, 36, 6, 1}};
 
-    auto B = fc::inv(A);
-
+    auto B = fc::inv2(A);
     std::cout << B << '\n';
 
-    fc::Mat<float> C {{-4, -3, -2},
-                      {-1, 0, 1},
-                      {2, 3, 4}};
 
-    std::cout << fc::norm(C) << '\n';
 
-    fc::Mat<int> D {{12, -51, 4},
-                    {6, 167, -68},
-                    {-4, 24, -41}};
-
-    auto [Q, R] = fc::QR(D);
-
-    std::cout << Q << '\n';
-    std::cout << R << '\n';
-
-    auto D_3 = fc::pow(D, 3);
-
-    std::cout << D_3 << '\n';
-
-    A.swapRows(2, 3);
-
-    std::cout << A << '\n';
 
 
 }

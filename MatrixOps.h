@@ -23,7 +23,7 @@ template <OneExists T>
 Matrix<T, 2> eye(std::size_t n, std::size_t m) {
     Matrix<T, 2> mat (n, m);
     for (std::size_t i = 0; i < std::min(n, m); ++i) {
-        mat(i, i) = T{1};
+        mat[{i, i}] = T{1};
     }
     return mat;
 }

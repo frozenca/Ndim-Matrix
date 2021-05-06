@@ -187,7 +187,7 @@ std::tuple<std::vector<std::size_t>, Mat<B>, Mat<B>> LUP(const MatrixBase<Derive
         A p {0};
         std::size_t k_ = -1;
         for (std::size_t i = k; i < n; ++i) {
-            auto val = std::fabs(A_(i, k));
+            auto val = std::fabs(A_[{i, k}]);
             if (val > p) {
                 p = val;
                 k_ = i;
@@ -198,12 +198,12 @@ std::tuple<std::vector<std::size_t>, Mat<B>, Mat<B>> LUP(const MatrixBase<Derive
         }
         std::swap(P[k], P[k_]);
         for (std::size_t i = 0; i < n; ++i) {
-            std::swap(A_(k, i), A_(k_, i));
+            std::swap(A_[{k, i}], A_[{k_, i}]);
         }
         for (std::size_t i = k + 1; i < n; ++i) {
-            A_(i, k) /= A_(k, k);
+            A_[{i, k}] /= A_[{k, k}];
             for (std::size_t j = k + 1; j < n; ++j) {
-                A_(i, j) -= A_(i, k) * A_(k, j);
+                A_[{i, j}] -= A_[{i, k}] * A_[{k, j}];
             }
         }
     }
@@ -211,9 +211,9 @@ std::tuple<std::vector<std::size_t>, Mat<B>, Mat<B>> LUP(const MatrixBase<Derive
     for (std::size_t i = 0; i < n; ++i) {
         for (std::size_t j = 0; j < n; ++j) {
             if (j < i) {
-                L(i, j) = A_(i, j);
+                L[{i, j}] = A_[{i, j}];
             } else {
-                U(i, j) = A_(i, j);
+                U[{i, j}] = A_[{i, j}];
             }
         }
     }
@@ -236,16 +236,16 @@ std::pair<Mat<B>, Mat<B>> Cholesky(const MatrixBase<Derived, A, 2>& mat) {
             A sum {0};
             for (std::size_t k = 0; k < j; ++k) {
                 if constexpr (isComplex<A>) {
-                    sum += L(i, k) * conj(L(j, k));
+                    sum += L[{i, k}] * conj(L[{j, k}]);
                 } else {
-                    sum += L(i, k) * L(j, k);
+                    sum += L[{i, k}] * L[{j, k}];
                 }
             }
 
             if (i == j) {
-                L(i, j) = std::sqrt(A_(i, i) - sum);
+                L[{i, j}] = std::sqrt(A_[{i, i}] - sum);
             } else {
-                L(i, j) = ((A{1.0} / L(j, j)) * (A_(i, j) - sum));
+                L[{i, j}] = ((A{1.0} / L[{j, j}]) * (A_[{i, j}] - sum));
             }
         }
     }
@@ -262,7 +262,7 @@ bool isLowerTriangular(const MatrixBase<Derived, A, 2>& mat) {
     std::size_t C = mat.dims(1);
     for (std::size_t i = 0; i < R; ++i) {
         for (std::size_t j = i + 1; j < C; ++j) {
-            if (mat(i, j) != A{0}) {
+            if (mat[{i, j}] != A{0}) {
                 return false;
             }
         }
@@ -276,7 +276,7 @@ bool isUpperTriangular(const MatrixBase<Derived, A, 2>& mat) {
     std::size_t C = mat.dims(1);
     for (std::size_t i = 0; i < R; ++i) {
         for (std::size_t j = 0; j < std::min(i, C); ++j) {
-            if (mat(i, j) != A{0}) {
+            if (mat[{i, j}] != A{0}) {
                 return false;
             }
         }
@@ -300,7 +300,7 @@ A det(const MatrixBase<Derived, A, 2>& mat) {
     if (isTriangular(mat)) {
         A det_val {1};
         for (std::size_t i = 0; i < n; ++i) {
-            det_val *= mat(i, i);
+            det_val *= mat[{i, i}];
         }
         return det_val;
     }
@@ -313,67 +313,38 @@ namespace {
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
 Mat<B> inv_impl(const MatrixBase<Derived, A, 2>& mat) {
     std::size_t n = mat.dims(0);
-    if (n == 1) {
-        if (mat(0, 0) == A{0}) {
+
+    Mat<B> M = mat;
+    Mat<B> Inv = identity<B>(n);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        // pivoting
+        for (std::size_t k = i + 1; k < n; ++k) {
+            if (M[{i, i}] == B{0} && std::fabs(M[{k, i}]) != B{0}) {
+                M.swapRows(i, k);
+                Inv.swapRows(i, k);
+                break;
+            }
+        }
+        if (M[{i, i}] == B{0}) {
             throw std::invalid_argument("Singular matrix, cannot invertible");
         }
-        Mat<B> Inv = full<B, 2>({1, 1}, B{1} / mat(0, 0));
-        return Inv;
-    } else if (n == 2) {
-        auto det_val = mat(0, 0) * mat(1, 1) - mat(0, 1) * mat(1, 0);
-        if (det_val == B{0}) {
-            throw std::invalid_argument("Singular matrix, cannot invertible");
+        for (std::size_t j = i + 1; j < n; ++j) {
+            B coeff = M[{j, i}] / M[{i, i}];
+            Inv.row(j) -= coeff * Inv.row(i);
+            M.row(j) -= coeff * M.row(i);
         }
-        Mat<B> Inv {{static_cast<B>(mat(1, 1)), static_cast<B>(-mat(0, 1))},
-                    {static_cast<B>(-mat(1, 0)), static_cast<B>(mat(0, 0))}};
-        Inv /= det_val;
-        return Inv;
-    } else {
-        auto half = std::bit_floor(n);
-        if (std::has_single_bit(n)) {
-            half >>= 1;
-        }
-        auto P = mat.submatrix({0, 0}, {half, half});
-        auto Q = mat.submatrix({0, half}, {half, n});
-        auto R = mat.submatrix({half, 0}, {n, half});
-        auto S = mat.submatrix({half, half}, {n, n});
-
-        Mat<B> Inv = empty_like(mat);
-        auto InvP = Inv.submatrix({0, 0}, {half, half});
-        auto InvQ = Inv.submatrix({0, half}, {half, n});
-        auto InvR = Inv.submatrix({half, 0}, {n, half});
-        auto InvS = Inv.submatrix({half, half}, {n, n});
-        if (std::ranges::all_of(Q, [](const auto& q){return q == A{0};})) {
-            // [ P^-1          0    ]
-            // [ -S^-1RP^-1    S^-1 ]
-            InvP = inv_impl(P);
-            std::ranges::fill(InvQ, A{0});
-            InvS = inv_impl(S);
-            InvR = -dot(dot(InvS, R), InvP);
-        } else if (std::ranges::all_of(R, [](const auto& r){return r == A{0};})) {
-            // [ P^-1  -P^-1QS^-1 ]
-            // [ 0           S^-1 ]
-            InvP = inv_impl(P);
-            std::ranges::fill(InvR, A{0});
-            InvS = inv_impl(S);
-            InvQ = -dot(dot(InvP, Q), InvS);
-        } else {
-            // [ P^-1 + TUV    TU ]
-            // [ UV            U  ]
-            // T = -P^-1Q
-            // V = -RP^-1
-            // InvS = U = (S + VQ)^-1
-
-            InvP = inv_impl(P);
-            auto T = -dot(InvP, Q);
-            auto V = -dot(R, InvP);
-            InvS = inv_impl(S + dot(V, Q));
-            InvQ = dot(T, InvS);
-            InvR = dot(InvS, V);
-            InvP += dot(T, InvR);
-        }
-        return Inv;
     }
+    for (std::size_t i = n - 1; i < n; --i) {
+        for (std::size_t j = 0; j < i; ++j) {
+            B coeff = M[{j, i}] / M[{i, i}];
+            Inv.row(j) -= coeff * Inv.row(i);
+            M[{j, i}] = B{0};
+        }
+        Inv.row(i) /= M[{i, i}];
+        M[{i, i}] = 1;
+    }
+    return Inv;
 }
 
 } // anonymous namespace
@@ -388,8 +359,10 @@ Mat<B> inv(const MatrixBase<Derived, A, 2>& mat) {
     return inv_impl(mat);
 }
 
+namespace {
+
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
-Mat<B> pow_impl(const MatrixBase<Derived, A, 2>& mat, int p) {
+Mat <B> pow_impl(const MatrixBase<Derived, A, 2>& mat, int p) {
     assert(p >= 1);
     if (p == 1) {
         return mat;
@@ -402,6 +375,8 @@ Mat<B> pow_impl(const MatrixBase<Derived, A, 2>& mat, int p) {
         }
     }
 }
+
+} // anonympus namespace
 
 template <typename Derived, isScalar A, isScalar B = RealTypeT<A>> requires RealTypeTo<A, B>
 Mat<B> pow(const MatrixBase<Derived, A, 2>& mat, int p) {
