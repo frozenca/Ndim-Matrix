@@ -39,4 +39,5 @@ C++20 N-dimensional Matrix class for hobby project
 - Neural network operations (CNN, RNN, etc)
 - N-dim sampling (N-dim Gaussian, etc)
 - Migrate to C++20 modules (Current MSVC 19.28 implementation is broken, waiting for fix)
+- Documentation for APIs
 - Build testing frameworks
