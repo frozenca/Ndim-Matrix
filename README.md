@@ -8,6 +8,7 @@ C++20 N-dimensional Matrix class for hobby project
 - add, sub, mul, div, modulus (supports broadcasting)
 - scalar assignment, addition, subtraction, multiplication, division, etc (operations defined provided that scalar types are compatible)
 - ```operator+=, -=, *=, /=, %=```, etc
+- elementwise operations are all parallelized using ```std::execution::par_unseq```
 
 # Supports 
 - Inner product
