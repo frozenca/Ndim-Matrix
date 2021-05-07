@@ -19,15 +19,6 @@ void DotTo(T& m,
     m += std::transform_reduce(std::execution::par_unseq, std::begin(m1), std::end(m1), std::begin(m2), T{0});
 }
 
-template <isComplex U, isComplex V, isComplex T>
-void CompDotTo(T& m,
-           const MatrixView<U, 1>& m1,
-           const MatrixView<V, 1>& m2) {
-    m += std::transform_reduce(std::execution::par_unseq, std::begin(m1), std::end(m1), std::begin(m2), T{0},
-                               [](const auto& u, const auto& v){ return u + v;},
-                               [](const auto& u, const auto& v){ return std::conj(u) * v;});
-}
-
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
 void DotTo(MatrixView<T, 1>& m,
@@ -124,16 +115,6 @@ void DotTo(T& m,
     DotTo(m, m1_view, m2_view);
 }
 
-template <typename Derived1, typename Derived2,
-        isComplex U, isComplex V, isComplex T>
-void CompDotTo(T& m,
-           const MatrixBase<Derived1, U, 1>& m1,
-           const MatrixBase<Derived2, V, 1>& m2) {
-    MatrixView<U, 1> m1_view (m1);
-    MatrixView<V, 1> m2_view (m2);
-    CompDotTo(m, m1_view, m2_view);
-}
-
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires DotProductableTo<U, V, T> && (std::max(N1, N2) == N)
@@ -148,6 +129,18 @@ void MatmulTo(MatrixView<T, N>& m,
 }
 
 } // anonymous namespace
+
+template <typename Derived1, typename Derived2,
+        std::semiregular U, std::semiregular V,
+        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
+decltype(auto) dot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derived2, V, 1>& m2) {
+    if (m1.dims(0) != m2.dims(0)) {
+        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
+    }
+    T res {0};
+    DotTo(res, m1, m2);
+    return res;
+}
 
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
@@ -199,56 +192,6 @@ decltype(auto) outer(const MatrixBase<Derived2, V, 1>& m1, const MatrixBase<Deri
             res[{i, j}] = m1[i] * m2[j];
         }
     }
-    return res;
-}
-
-template <typename Derived1, typename Derived2,
-        std::semiregular U, std::semiregular V,
-        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
-decltype(auto) dot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derived2, V, 1>& m2) {
-    if (m1.dims(0) != m2.dims(0)) {
-        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
-    }
-    T res {0};
-    DotTo(res, m1, m2);
-    return res;
-}
-
-// (m x n) x (n x 1)
-template <typename Derived1, typename Derived2,
-        std::semiregular U, std::semiregular V,
-        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
-decltype(auto) compdot(const MatrixBase<Derived1, U, 2>& m1, const MatrixBase<Derived2, V, 1>& m2) {
-    if (m1.dims(1) != m2.dims(0)) {
-        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
-    }
-    Vec<T> res (m1.dims(0));
-    CompDotTo(res, m1, m2);
-    return res;
-}
-
-// (1 x m) x (m x n)
-template <typename Derived1, typename Derived2,
-        std::semiregular U, std::semiregular V,
-        std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
-decltype(auto) compdot(const MatrixBase<Derived2, V, 1>& m1, const MatrixBase<Derived1, U, 2>& m2) {
-    if (m1.dims(0) != m2.dims(0)) {
-        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
-    }
-    Vec<T> res (m2.dims(1));
-    CompDotTo(res, m1, m2);
-    return res;
-}
-
-template <typename Derived1, typename Derived2,
-        isComplex U, isComplex V,
-        isComplex T = MulType<U, V>>
-decltype(auto) compdot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derived2, V, 1>& m2) {
-    if (m1.dims(0) != m2.dims(0)) {
-        throw std::invalid_argument("Cannot do dot product, shape is not aligned");
-    }
-    T res {0};
-    CompDotTo(res, m1, m2);
     return res;
 }
 
@@ -404,6 +347,16 @@ bool isTriangular(const MatrixBase<Derived, U, 2>& mat) {
 }
 
 template <typename Derived, isScalar T>
+T tr(const MatrixBase<Derived, T, 2>& mat) {
+    std::size_t n = std::min(mat.dims(0), mat.dims(1));
+    T val {0};
+    for (std::size_t i = 0; i < n; ++i) {
+        val += mat[{i, i}];
+    }
+    return val;
+}
+
+template <typename Derived, isScalar T>
 T det(const MatrixBase<Derived, T, 2>& mat) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
@@ -517,7 +470,7 @@ T norm(const MatrixBase<Derived, U, 1>& vec, std::size_t p = 2) {
                            T{0}, [](T accu, T val) { return accu + std::abs(val); });
     }
     T pow_sum = std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
-                            T{0}, [&p](T accu, T val) { return accu + std::pow(val, p); });
+                            T{0}, [&p](T accu, T val) { return accu + std::pow(std::abs(val), static_cast<float>(p)); });
     return std::pow(pow_sum, 1.0f / static_cast<float>(p));
 }
 
@@ -525,7 +478,7 @@ template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires Real
 T norm(const MatrixBase<Derived, U, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
     if (p == 2 && q == 2) { // Frobenius norm
         T pow_sum = std::reduce(std::execution::par_unseq, std::begin(mat), std::end(mat),
-                                T{0}, [](T accu, U val) { return accu + std::pow(val, 2.0f); });
+                                T{0}, [](T accu, U val) { return accu + std::pow(std::abs(val), 2.0f); });
         return std::sqrt(pow_sum);
     }
     std::size_t R = mat.dims(0);
@@ -602,14 +555,6 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
         }
     };
 
-    auto ratio_denom = [&](const auto& alpha, const auto& beta) {
-        if constexpr (isComplex<S>) {
-            return std::sqrt(std::real(beta * alpha));
-        } else {
-            return std::sqrt(beta * alpha);
-        }
-    };
-
     while (++iter < max_iter) {
         float max_ratio = 0.0f;
         for (std::size_t i = 0; i < m; ++i) {
@@ -638,7 +583,7 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
                     V[{k, i}] = c * rot1 - s * rot2;
                     V[{k, j}] = s * rot1 + c * rot2;
                 }
-                float curr_ratio = std::abs(c) / ratio_denom(alpha, beta);
+                float curr_ratio = std::abs(c) / std::sqrt(std::abs(beta * alpha));
                 max_ratio = std::max(max_ratio, curr_ratio);
             }
         }
@@ -689,7 +634,15 @@ template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires Real
 Vec<T> Householder(const MatrixBase<Derived, U, 1>& vec) {
     Vec<T> u = vec;
     T v1 = vec[0];
-    auto sign = std::signbit(v1) ? -1 : +1;
+    auto getSign = [&]() {
+        if constexpr (isComplex<T>) {
+            return v1 / std::abs(v1);
+        } else {
+            return std::signbit(v1) ? -1.0f : +1.0f;
+        }
+    };
+
+    auto sign = getSign();
     auto v_norm = norm(vec);
     u[0] += sign * v_norm;
     auto u_norm = norm(u);
@@ -758,12 +711,12 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
 
 namespace {
 
-template <isScalar T>
+template <isReal T>
 std::pair<T, T> Rayleigh(const T& a, const T& b, const T& c, const T& d) {
     auto tr = a + d;
     auto dt = a * d - b * c;
     auto sq = tr * tr - 4.0f * dt;
-    if (sq > 0) { // real eigenvalues
+    if (sq >= 0) { // real eigenvalues or want complex eigenvalues
         auto root1 = (tr + std::sqrt(sq)) / 2.0f;
         auto root2 = (tr - std::sqrt(sq)) / 2.0f;
 
@@ -772,25 +725,119 @@ std::pair<T, T> Rayleigh(const T& a, const T& b, const T& c, const T& d) {
 
         // z^2 + bz + c = (z-r)^2
         return {-2.0f * root, root * root};
-    } else { // complex eigenvalues, we want char poly directly.
+    } else { // don't want complex eigenvalues, we want char poly directly.
         return {-tr, dt};
+    }
+}
+
+template <isComplex T>
+std::pair<T, T> Rayleigh(const T& a, const T& b, const T& c, const T& d) {
+    auto tr = a + d;
+    auto dt = a * d - b * c;
+    auto sq = tr * tr - 4.0f * dt;
+    auto root1 = (tr + std::sqrt(sq)) / 2.0f;
+    auto root2 = (tr - std::sqrt(sq)) / 2.0f;
+    // choose the one closer to d
+    auto root = (std::abs(root1 - d) < std::abs(root2 - d)) ? root1 : root2;
+    // z^2 + bz + c = (z-r)^2
+    return {-2.0f * root, root * root};
+}
+
+template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+std::vector<T> eigenTwo(const MatrixBase<Derived, U, 2>& M) {
+    auto tr = M[{0, 0}] + M[{1, 1}];
+    auto dt = M[{0, 0}] * M[{1, 1}] - M[{0, 1}] * M[{1, 0}];
+    auto sq = tr * tr - 4.0f * dt;
+    auto getSq = [&]() {
+        if constexpr (isComplex<T>) {
+            return std::real(sq);
+        } else {
+            return sq;
+        }
+    };
+    if (isComplex<T> || getSq() >= 0) { // real eigenvalues
+        auto root1 = (tr + std::sqrt(sq)) / 2.0f;
+        auto root2 = (tr - std::sqrt(sq)) / 2.0f;
+        return {root1, root2};
+    } else {
+        return {};
+    }
+}
+
+template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+std::vector<T> eigenThree(const MatrixBase<Derived, U, 2>& M) {
+    using UC = CmpTypeT<U>;
+
+    // [[a, b, c]
+    //  [d, e, f]
+    //  [g, h, i]]
+    auto a = M[{0, 0}];
+    auto e = M[{1, 1}];
+    auto i = M[{2, 2}];
+    if (isTriangular(M)) {
+        return {a, e, i};
+    }
+    auto b = M[{0, 1}];
+    auto c = M[{0, 2}];
+    auto d = M[{1, 0}];
+    auto f = M[{1, 2}];
+    auto g = M[{2, 0}];
+    auto h = M[{2, 1}];
+
+    // char poly : x^3 + b_x^2 + c_x + d_
+    auto trM = tr(M);
+    auto trsq = tr(dot(M, M));
+    auto detM = det(M);
+
+    auto b_ = trM;
+    auto c_ = (trM * trM - trsq) / 2.0f;
+    auto d_ = detM;
+
+    // b_^2 - 3c_
+    auto l0 = std::pow(b_, 2.0f) - 3.0f * c_;
+    // 2b_^3 - 9b_c_ + 27d_
+    auto l1 = 2.0f * std::pow(b_, 3.0f) - 9.0f * b_ * c_ + 27.0f * d_;
+
+    // sqrt(l1^2 - 4l0^3)
+    auto l2 = std::sqrt(static_cast<UC>(std::pow(l1, 2.0f) - 4.0f * std::pow(l0, 3.0f)));
+    auto C = std::pow((l1 + l2) / 2.0f, 1.0f / 3.0f);
+    auto z = (-1.0f + std::sqrt(static_cast<UC>(-3.0f))) / 2.0f;
+
+    auto root1 = -(b_ + C + l0 / C) / 3.0f;
+    C *= z;
+    auto root2 = -(b_ + C + l0 / C) / 3.0f;
+    C *= z;
+    auto root3 = -(b_ + C + l0 / C) / 3.0f;
+
+    constexpr double tolerance = 1e-6;
+    if constexpr (isComplex<T>) {
+        return {root1, root2, root3};
+    } else {
+        std::vector<T> roots;
+        if (std::imag(root1) < tolerance) {
+            roots.push_back(std::real(root1));
+        }
+        if (std::imag(root2) < tolerance) {
+            roots.push_back(std::real(root2));
+        }
+        if (std::imag(root3) < tolerance) {
+            roots.push_back(std::real(root3));
+        }
+        return roots;
     }
 }
 
 // QR algorithm used in eigendecomposition.
 // not to be confused with QR decomposition
 template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
-Mat<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
-    // assumption : mat is (upper) Hessenberg
-
+std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
     std::size_t n = mat.dims(0);
-    std::size_t C = mat.dims(1);
-    if (n != C) {
-        throw std::invalid_argument("Not a square matrix, cannot do QR iteration");
-    }
-    assert(n > 3); // n <= 3 are handled analytically
+    // assumption : mat is (upper) Hessenberg
+    constexpr float tolerance = 1e-6;
+    assert(n > 3); // n <= 3 will be handled analytically
 
-    constexpr float conv_criterion = 1e-5;
+    Mat<T> H = mat;
+    std::size_t p = n; // effective matrix size
 
     auto conjif = [&](const auto& v) {
         if constexpr (isComplex<U>) {
@@ -800,8 +847,6 @@ Mat<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
         }
     };
 
-    Mat<T> H = mat;
-    std::size_t p = n; // effective matrix size.
     while (p > 2) {
         auto [s, t] = Rayleigh(H[{p - 2, p - 2}], H[{p - 2, p - 1}],
                                H[{p - 1, p - 2}], H[{p - 1, p - 1}]);
@@ -832,38 +877,65 @@ Mat<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
         }
 
         // for last x and y, find Givens rotation
-        auto rad = std::hypot(x, y);
+        auto rad = std::sqrt(std::pow(x, 2.0f) + std::pow(y, 2.0f));
         auto cos_val = x / rad;
         auto sin_val = y / rad;
         Mat<T> R {{cos_val, sin_val}, {-sin_val, cos_val}};
         Mat<T> RT {{cos_val, -sin_val}, {sin_val, cos_val}};
 
         auto Sub1 = H.submatrix({p - 2, p - 3}, {p, n});
-        Sub1 = dot(RT, Sub1);
+        Sub1 = dot(conjif(RT), Sub1);
         auto Sub2 = H.submatrix({0, p - 2}, {p, p});
         Sub2 = dot(Sub2, R);
 
         // check convergence, deflate if necessary
-        if (std::abs(H[{p - 1, p - 2}]) < conv_criterion *
-           (std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
+        if (std::abs(H[{p - 1, p - 2}]) < tolerance *
+                                          (std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
             H[{p - 1, p - 2}] = T{0};
             p -= 1;
-        } else if (std::abs(H[{p - 2, p - 3}]) < conv_criterion *
-           (std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
+        } else if (std::abs(H[{p - 2, p - 3}]) < tolerance *
+                                                 (std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
             H[{p - 2, p - 3}] = T{0};
             p -= 2;
         }
     }
-    return H;
+
+    std::vector<T> res;
+    for (std::size_t k = 0; k < n - 1; ) {
+        if (std::abs(H[{k + 1, k}]) > tolerance) {
+            auto H_four = H.submatrix({k, k}, {k + 2, k + 2});
+            auto ev = eigenTwo(H_four);
+            std::ranges::move(ev, std::back_inserter(res));
+            k += 2;
+        } else {
+            res.push_back(H[{k, k}]);
+            k += 1;
+        }
+    }
+    return res;
 }
 
 } // anonymous namespace
 
 template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
-Mat<T> eigen(const MatrixBase<Derived, U, 2>& mat) {
-    auto H = Hessenberg(mat);
-    auto Diag = QRIteration(H);
-    return Diag;
+std::vector<T> eigenval(const MatrixBase<Derived, U, 2>& M) {
+    std::size_t n = M.dims(0);
+    std::size_t C = M.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square Matrix, cannot compute eigenvalues");
+    }
+
+    if (n == 1) { // 1 x 1
+        return {M[{0, 0}]};
+    } else if (n == 2) { // 2 x 2
+        return eigenTwo(M);
+    } else if (n == 3) { // 3 x 3
+        return eigenThree(M);
+    } else { // for 4 x 4 we need advanced algorithm
+        auto H = Hessenberg(M);
+        std::cout << H << '\n';
+        return QRIteration(H);
+    }
 }
 
 } // namespace frozenca

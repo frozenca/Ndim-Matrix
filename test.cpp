@@ -13,9 +13,11 @@ int main() {
                      {-5, 2, 6, 6},
                      {-7, 2, 8, 9}};
 
-    auto H = fc::eigen(A);
+    auto H = fc::eigenval(A);
 
-    std::cout << H << '\n';
+    for (const auto& h : H) {
+        std::cout << h << '\n';
+    }
 
 
 
