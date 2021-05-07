@@ -37,7 +37,8 @@ C++20 N-dimensional Matrix class for hobby project
 - Array manipulations like concat, split, row/column rotate, zeropad, etc (tedious...)
 - Expand linear algebra stuffs to >2D (tedious...)
 - Neural network operations (CNN, RNN, etc)
-- N-dim sampling (N-dim Gaussian, etc)
+- N-dim sampling (N-dim Gaussian, t-Student, Gamma, Wishart, etc)
 - Migrate to C++20 modules (Current MSVC 19.28 implementation is broken, waiting for fix)
+- Binding with Python
 - Documentation for APIs
 - Build testing frameworks
