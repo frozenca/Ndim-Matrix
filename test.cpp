@@ -18,8 +18,19 @@ int main() {
     for (const auto& h : H) {
         std::cout << h << '\n';
     }
+    std::cout << '\n';
 
+    fc::Mat<float> B{{0, 1, 1, 0},
+                     {1, 0, 0, 1},
+                     {0, 0, 0, 1},
+                     {0, 0, -1, 0}};
 
+    auto H2 = fc::eigenval(B);
+
+    for (const auto& h : H2) {
+        std::cout << h << '\n';
+    }
+    std::cout << '\n';
 
 
 

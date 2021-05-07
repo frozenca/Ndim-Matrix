@@ -227,7 +227,7 @@ decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<De
     return res;
 }
 
-template <typename Derived, isScalar S, isScalar T = RealTypeT<S>> requires RealTypeTo<S, T>
+template <typename Derived, isScalar S, isScalar T = ScalarTypeT < S>> requires ScalarTypeTo<S, T>
 std::tuple<std::vector<std::size_t>, Mat<T>, Mat<T>> LUP(const MatrixBase<Derived, S, 2>& mat) {
 
     std::size_t n = mat.dims(0);
@@ -278,7 +278,7 @@ std::tuple<std::vector<std::size_t>, Mat<T>, Mat<T>> LUP(const MatrixBase<Derive
     return {P, L, U};
 }
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 std::pair<Mat<T>, Mat<T>> Cholesky(const MatrixBase<Derived, U, 2>& mat) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
@@ -377,7 +377,7 @@ T det(const MatrixBase<Derived, T, 2>& mat) {
 
 namespace {
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 Mat<T> inv_impl(const MatrixBase<Derived, U, 2>& mat) {
     std::size_t n = mat.dims(0);
 
@@ -416,7 +416,7 @@ Mat<T> inv_impl(const MatrixBase<Derived, U, 2>& mat) {
 
 } // anonymous namespace
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 Mat<T> inv(const MatrixBase<Derived, U, 2>& mat) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
@@ -428,7 +428,7 @@ Mat<T> inv(const MatrixBase<Derived, U, 2>& mat) {
 
 namespace {
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 Mat <T> pow_impl(const MatrixBase<Derived, U, 2>& mat, int p) {
     assert(p >= 1);
     if (p == 1) {
@@ -445,7 +445,7 @@ Mat <T> pow_impl(const MatrixBase<Derived, U, 2>& mat, int p) {
 
 } // anonymous namespace
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 Mat<T> pow(const MatrixBase<Derived, U, 2>& mat, int p) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
@@ -461,24 +461,24 @@ Mat<T> pow(const MatrixBase<Derived, U, 2>& mat, int p) {
     }
 }
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isReal T = RealTypeT<U>> requires RealTypeTo<U, T>
 T norm(const MatrixBase<Derived, U, 1>& vec, std::size_t p = 2) {
     if (p == 0) {
         throw std::invalid_argument("Norm is undefined");
     } else if (p == 1) {
-        return std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
-                           T{0}, [](T accu, T val) { return accu + std::abs(val); });
+        return std::abs(std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
+                           U{0}, [](U accu, U val) { return accu + std::abs(val); }));
     }
-    T pow_sum = std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
-                            T{0}, [&p](T accu, T val) { return accu + std::pow(std::abs(val), static_cast<float>(p)); });
+    T pow_sum = std::abs(std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
+                            U{0}, [&p](U accu, U val) { return accu + std::pow(std::abs(val), static_cast<float>(p)); }));
     return std::pow(pow_sum, 1.0f / static_cast<float>(p));
 }
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isReal T = RealTypeT < U>> requires RealTypeTo<U, T>
 T norm(const MatrixBase<Derived, U, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
     if (p == 2 && q == 2) { // Frobenius norm
-        T pow_sum = std::reduce(std::execution::par_unseq, std::begin(mat), std::end(mat),
-                                T{0}, [](T accu, U val) { return accu + std::pow(std::abs(val), 2.0f); });
+        T pow_sum = std::abs(std::reduce(std::execution::par_unseq, std::begin(mat), std::end(mat),
+                                U{0}, [](U accu, U val) { return accu + std::pow(std::abs(val), 2.0f); }));
         return std::sqrt(pow_sum);
     }
     std::size_t R = mat.dims(0);
@@ -492,7 +492,7 @@ T norm(const MatrixBase<Derived, U, 2>& mat, std::size_t p = 2, std::size_t q = 
 
 namespace {
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 Mat<T> getQ(const MatrixBase<Derived, U, 2>& V) {
     std::size_t R = V.dims(0);
     std::size_t C = V.dims(1);
@@ -521,14 +521,14 @@ Mat<T> getQ(const MatrixBase<Derived, U, 2>& V) {
 
 } // anonymous namespace
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 std::pair<Mat<T>, Mat<T>> QR(const MatrixBase<Derived, U, 2>& mat) {
     auto Q = getQ(mat);
     auto R = dot(transpose(Q), mat);
     return {Q, R};
 }
 
-template <typename Derived, isScalar S, isScalar T = RealTypeT<S>> requires RealTypeTo<S, T>
+template <typename Derived, isScalar S, isScalar T = ScalarTypeT < S>> requires ScalarTypeTo<S, T>
 std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std::size_t trunc) {
     constexpr float conv_criterion = 1e-6;
     constexpr std::size_t max_iter = 100;
@@ -623,34 +623,37 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
     return {U_, Sigma_, V_};
 }
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, U, 2>& mat) {
     std::size_t m = mat.dims(0);
     std::size_t n = mat.dims(1);
     return SVD(mat, std::min(m, n));
 }
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 Vec<T> Householder(const MatrixBase<Derived, U, 1>& vec) {
+    constexpr float tolerance = 1e-6;
     Vec<T> u = vec;
     T v1 = vec[0];
+    auto v_norm = norm(vec);
     auto getSign = [&]() {
         if constexpr (isComplex<T>) {
+            if (std::abs(v1) < tolerance) {
+                return static_cast<T>(1.0f);
+            }
             return v1 / std::abs(v1);
         } else {
             return std::signbit(v1) ? -1.0f : +1.0f;
         }
     };
-
     auto sign = getSign();
-    auto v_norm = norm(vec);
     u[0] += sign * v_norm;
     auto u_norm = norm(u);
     u /= u_norm;
     return u;
 }
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
@@ -671,29 +674,36 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
 
     Mat<T> H = mat;
 
+    constexpr float tolerance = 1e-6;
+
     if (both) { // we want both upper and lower Hessenberg! (tridiagonal)
         // Note: the original matrix should be symmetric in this case.
         for (std::size_t k = 0; k < n - 1; ++k) {
             // erase below subdiagonal
             auto ck1 = H.col(k).submatrix(k + 1);
-            auto vk1 = Householder(ck1);
-
-            // apply Householder from the left
-            auto Sub1 = H.submatrix({k + 1, k});
-            Sub1 -= outer(vk1, dot(2.0f * conjif(vk1), Sub1));
+            if (norm(ck1) > tolerance) {
+                auto vk1 = Householder(ck1);
+                // apply Householder from the left
+                auto Sub1 = H.submatrix({k + 1, k});
+                Sub1 -= outer(vk1, dot(2.0f * conjif(vk1), Sub1));
+            }
 
             // erase right of superdiagonal
             auto ck2 = H.row(k).submatrix(k + 1);
-            auto vk2 = Householder(ck2);
-
-            // apply Householder from the right
-            auto Sub2 = H.submatrix({k, k + 1});
-            Sub2 -= outer(dot(Sub2, 2.0f * vk2), conjif(vk2));
+            if (norm(ck2) > tolerance) {
+                auto vk2 = Householder(ck2);
+                // apply Householder from the right
+                auto Sub2 = H.submatrix({k, k + 1});
+                Sub2 -= outer(dot(Sub2, 2.0f * vk2), conjif(vk2));
+            }
         }
     } else { // nope, upper Hessenberg is enough. (default)
         for (std::size_t k = 0; k < n - 2; ++k) {
             // (n - k - 1) x 1
             auto ck = H.col(k).submatrix(k + 1);
+            if (norm(ck) < tolerance) {
+                continue;
+            }
             auto vk = Householder(ck);
 
             // apply Householder from the left
@@ -743,7 +753,7 @@ std::pair<T, T> Rayleigh(const T& a, const T& b, const T& c, const T& d) {
     return {-2.0f * root, root * root};
 }
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
 std::vector<T> eigenTwo(const MatrixBase<Derived, U, 2>& M) {
     auto tr = M[{0, 0}] + M[{1, 1}];
     auto dt = M[{0, 0}] * M[{1, 1}] - M[{0, 1}] * M[{1, 0}];
@@ -764,7 +774,7 @@ std::vector<T> eigenTwo(const MatrixBase<Derived, U, 2>& M) {
     }
 }
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
 std::vector<T> eigenThree(const MatrixBase<Derived, U, 2>& M) {
     using UC = CmpTypeT<U>;
 
@@ -829,11 +839,12 @@ std::vector<T> eigenThree(const MatrixBase<Derived, U, 2>& M) {
 
 // QR algorithm used in eigendecomposition.
 // not to be confused with QR decomposition
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
 std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
     std::size_t n = mat.dims(0);
     // assumption : mat is (upper) Hessenberg
-    constexpr float tolerance = 1e-6;
+    constexpr float tolerance_conv = 1e-6;
+    constexpr float tolerance_nonzero = 1e-9;
     assert(n > 3); // n <= 3 will be handled analytically
 
     Mat<T> H = mat;
@@ -859,15 +870,15 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
         // repeatedly apply Householder
         for (std::size_t k = 0; k < p - 2; ++k) {
             Vec<T> v {x, y, z};
-            auto vk = Householder(v);
-
-            std::size_t r = (k == 0) ? 0 : (k - 1);
-            auto Sub1 = H.submatrix({k, r}, {k + 3, n});
-            Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
-
-            r = std::min(k + 4, p);
-            auto Sub2 = H.submatrix({0, k}, {r, k + 3});
-            Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
+            if (norm(v) > tolerance_nonzero) {
+                auto vk = Householder(v);
+                std::size_t r = (k == 0) ? 0 : (k - 1);
+                auto Sub1 = H.submatrix({k, r}, {k + 3, n});
+                Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
+                r = std::min(k + 4, p);
+                auto Sub2 = H.submatrix({0, k}, {r, k + 3});
+                Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
+            }
 
             x = H[{k + 1, k}];
             y = H[{k + 2, k}];
@@ -877,24 +888,28 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
         }
 
         // for last x and y, find Givens rotation
-        auto rad = std::sqrt(std::pow(x, 2.0f) + std::pow(y, 2.0f));
-        auto cos_val = x / rad;
-        auto sin_val = y / rad;
-        Mat<T> R {{cos_val, sin_val}, {-sin_val, cos_val}};
-        Mat<T> RT {{cos_val, -sin_val}, {sin_val, cos_val}};
+        auto rad = std::sqrt(std::pow(std::abs(x), 2.0f) + std::pow(std::abs(y), 2.0f));
+        if (rad > tolerance_nonzero) {
+            auto cos_val = x / rad;
+            auto sin_val = y / rad;
+            Mat<T> R{{cos_val,  sin_val},
+                     {-sin_val, cos_val}};
+            Mat<T> RT{{cos_val, -sin_val},
+                      {sin_val, cos_val}};
 
-        auto Sub1 = H.submatrix({p - 2, p - 3}, {p, n});
-        Sub1 = dot(conjif(RT), Sub1);
-        auto Sub2 = H.submatrix({0, p - 2}, {p, p});
-        Sub2 = dot(Sub2, R);
+            auto Sub1 = H.submatrix({p - 2, p - 3}, {p, n});
+            Sub1 = dot(conjif(RT), Sub1);
+            auto Sub2 = H.submatrix({0, p - 2}, {p, p});
+            Sub2 = dot(Sub2, R);
+        }
 
         // check convergence, deflate if necessary
-        if (std::abs(H[{p - 1, p - 2}]) < tolerance *
-                                          (std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
+        if (std::abs(H[{p - 1, p - 2}]) < tolerance_conv *
+        std::max(std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
             H[{p - 1, p - 2}] = T{0};
             p -= 1;
-        } else if (std::abs(H[{p - 2, p - 3}]) < tolerance *
-                                                 (std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
+        } else if (std::abs(H[{p - 2, p - 3}]) < tolerance_conv *
+        std::max(std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
             H[{p - 2, p - 3}] = T{0};
             p -= 2;
         }
@@ -902,7 +917,7 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
 
     std::vector<T> res;
     for (std::size_t k = 0; k < n - 1; ) {
-        if (std::abs(H[{k + 1, k}]) > tolerance) {
+        if (std::abs(H[{k + 1, k}]) > tolerance_conv) {
             auto H_four = H.submatrix({k, k}, {k + 2, k + 2});
             auto ev = eigenTwo(H_four);
             std::ranges::move(ev, std::back_inserter(res));
@@ -917,7 +932,7 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
 
 } // anonymous namespace
 
-template <typename Derived, isScalar U, isScalar T = RealTypeT<U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
 std::vector<T> eigenval(const MatrixBase<Derived, U, 2>& M) {
     std::size_t n = M.dims(0);
     std::size_t C = M.dims(1);
@@ -933,7 +948,6 @@ std::vector<T> eigenval(const MatrixBase<Derived, U, 2>& M) {
         return eigenThree(M);
     } else { // for 4 x 4 we need advanced algorithm
         auto H = Hessenberg(M);
-        std::cout << H << '\n';
         return QRIteration(H);
     }
 }

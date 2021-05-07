@@ -199,20 +199,44 @@ template <typename T>
 concept isScalar = isReal<T> || isComplex<T>;
 
 template <typename T>
-struct RealType;
+struct ScalarType;
 
 template <std::integral T>
-struct RealType<T> {
+struct ScalarType<T> {
     using type = float;
 };
 
 template <std::floating_point T>
-struct RealType<T> {
+struct ScalarType<T> {
     using type = T;
 };
 
 template <isComplex T>
+struct ScalarType<T> {
+    using type = T;
+};
+
+template <typename A>
+using ScalarTypeT = typename ScalarType<A>::type;
+
+template <typename A, typename B>
+concept ScalarTypeTo = std::is_convertible_v<ScalarTypeT<A>, B>;
+
+template <typename T>
+struct RealType;
+
+template <std::integral T>
 struct RealType<T> {
+    using type = typename ScalarType<T>::type;
+};
+
+template <std::floating_point T>
+struct RealType<T> {
+    using type = typename ScalarType<T>::type;
+};
+
+template <std::floating_point T>
+struct RealType<std::complex<T>> {
     using type = T;
 };
 
