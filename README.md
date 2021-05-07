@@ -1,7 +1,7 @@
 # Ndim-Matrix
 C++20 N-dimensional Matrix class for hobby project
 
-# Supports
+# Supporting matrix operations
 - STL compatible iterators
 - reshape (O(1) move operation, no copy)
 - submatrix (implemented as a non-owning view, no copy)
@@ -12,7 +12,7 @@ C++20 N-dimensional Matrix class for hobby project
 - ```operator+=, -=, *=, /=, %=```, etc
 - elementwise operations are all parallelized using ```std::execution::par_unseq```
 
-# Supports 
+# Supporting linear algebra operations
 - Inner product
 - Matrix multiplication
 - Outer product
@@ -31,6 +31,7 @@ C++20 N-dimensional Matrix class for hobby project
 - File I/O
 - Einsum
 - Coordinatewise initialization
+- Sparse matrix
 - FFT, pinv
 - Array manipulations like concat, split, row/column rotate, zeropad, etc (tedious...)
 - Expand linear algebra stuffs to >2D (tedious...)
