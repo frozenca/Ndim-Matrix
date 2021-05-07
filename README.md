@@ -2,9 +2,11 @@
 C++20 N-dimensional Matrix class for hobby project
 
 # Supports
+- STL compatible iterators
 - reshape (O(1) move operation, no copy)
 - submatrix (implemented as a non-owning view, no copy)
 - row, col (no copy, basically non-owning views)
+- transpose
 - add, sub, mul, div, modulus (supports broadcasting)
 - scalar assignment, addition, subtraction, multiplication, division, etc (operations defined provided that scalar types are compatible)
 - ```operator+=, -=, *=, /=, %=```, etc
@@ -26,7 +28,9 @@ C++20 N-dimensional Matrix class for hobby project
 
 
 # ToDoList
-- Array manipulations like concat, split, etc (tedious...)
+- Einsum
+- FFT, pinv
+- Array manipulations like concat, split, row/column rotate, zeropad, etc (tedious...)
 - Expand linear algebra stuffs to >2D (tedious...)
 - Neural network operations (CNN, RNN, etc)
 - N-dim sampling (N-dim Gaussian, etc)
