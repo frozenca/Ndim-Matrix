@@ -33,6 +33,7 @@ C++20 N-dimensional Matrix class for hobby project
 - Coordinatewise initialization
 - Sparse matrix
 - FFT, pinv
+- Matrix over discrete scalars (In particular, Z_p)
 - Array manipulations like concat, split, row/column rotate, zeropad, etc (tedious...)
 - Expand linear algebra stuffs to >2D (tedious...)
 - Neural network operations (CNN, RNN, etc)
