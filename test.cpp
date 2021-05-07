@@ -30,11 +30,17 @@ int main() {
     }
     std::cout << '\n';
 
-    fc::Mat<float> B{{0, 1, 1, 0},
-                     {1, 0, 0, 1},
-                     {0, 0, 0, 1},
-                     {0, 0, -1, 0}};
-
+//    fc::Mat<float> B{{-2,2,0,0},{2,7,5,0},{0,5,6,6},{0,0,6,9}};
+//
+//    auto H2 = fc::eigenvec(B);
+//
+//    fc::Mat<std::complex<float>> BC = B;
+//
+//    for (const auto& [v, V] : H2) {
+//        std::cout << v << ' ' << V << '\n';
+//        std::cout << fc::normalize(fc::dot(BC, V)) << '\n';
+//    }
+//    std::cout << '\n';
 
 
 

@@ -13,6 +13,7 @@ namespace {
 
 constexpr float tolerance_soft = 1e-6;
 constexpr float tolerance_hard = 1e-10;
+constexpr std::size_t max_iter = 20;
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
@@ -533,8 +534,6 @@ std::pair<Mat<T>, Mat<T>> QR(const MatrixBase<Derived, U, 2>& mat) {
 
 template <typename Derived, isScalar S, isScalar T = ScalarTypeT < S>> requires ScalarTypeTo<S, T>
 std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std::size_t trunc) {
-    constexpr std::size_t max_iter = 100;
-
     std::size_t iter = 0;
     std::size_t m = mat.dims(0);
     std::size_t n = mat.dims(1);
@@ -961,6 +960,8 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
     Mat<T> H = mat;
     std::size_t p = n; // effective matrix size
 
+    std::size_t iter = 0;
+
     while (p > 2) {
         auto [s, t] = Rayleigh(H[{p - 2, p - 2}], H[{p - 2, p - 1}],
                                H[{p - 1, p - 2}], H[{p - 1, p - 1}]);
@@ -1006,15 +1007,23 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
             Sub2 = dot(Sub2, R);
         }
 
+        if (++iter > max_iter) {
+            iter = 0;
+            p -= 1;
+            continue;
+        }
+
         // check convergence, deflate if necessary
         if (std::abs(H[{p - 1, p - 2}]) < tolerance_soft *
                                           std::max(std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
             H[{p - 1, p - 2}] = T{0};
             p -= 1;
+            iter = 0;
         } else if (std::abs(H[{p - 2, p - 3}]) < tolerance_soft *
                                                  std::max(std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
             H[{p - 2, p - 3}] = T{0};
             p -= 2;
+            iter = 0;
         }
     }
 
@@ -1053,6 +1062,8 @@ std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U
     Mat<T> H = mat;
     std::size_t p = n; // effective matrix size
     Mat<T> M = V;
+
+    std::size_t iter = 0;
 
     while (p > 2) {
         auto [s, t] = Rayleigh(H[{p - 2, p - 2}], H[{p - 2, p - 1}],
@@ -1105,6 +1116,12 @@ std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U
             Sub2 = dot(Sub2, R);
             auto MSub2 = M.submatrix({0, p - 2}, {n, p});
             MSub2 = dot(MSub2, R);
+        }
+
+        if (++iter > max_iter) {
+            iter = 0;
+            p -= 1;
+            continue;
         }
 
         // check convergence, deflate if necessary
