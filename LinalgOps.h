@@ -11,6 +11,9 @@ namespace frozenca {
 
 namespace {
 
+static constexpr float tolerance_soft = 1e-6;
+static constexpr float tolerance_hard = 1e-9;
+
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
 void DotTo(T& m,
@@ -530,7 +533,6 @@ std::pair<Mat<T>, Mat<T>> QR(const MatrixBase<Derived, U, 2>& mat) {
 
 template <typename Derived, isScalar S, isScalar T = ScalarTypeT < S>> requires ScalarTypeTo<S, T>
 std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std::size_t trunc) {
-    constexpr float conv_criterion = 1e-6;
     constexpr std::size_t max_iter = 100;
 
     std::size_t iter = 0;
@@ -541,7 +543,7 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
     Mat<T> V = identity<T>(n);
     auto dot_func = [&](auto& ri, auto& rj){
         if constexpr (isComplex<S>) {
-            return compdot(ri, rj);
+            return dot(conj(ri), rj);
         } else {
             return dot(ri, rj);
         }
@@ -565,9 +567,9 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
                 auto beta = dot_func(rj, rj);
                 auto gamma = dot_func(ri, rj);
                 float zeta = compute_zeta(alpha, beta, gamma);
-                auto sign = std::signbit(zeta) ? -1 : +1;
+                auto sign = std::signbit(zeta) ? -1.0f : +1.0f;
                 auto t = sign / (std::abs(zeta) + std::sqrt(1.0f + std::pow(zeta, 2.0f)));
-                float c = 1.0f / std::sqrt(1.0 + std::pow(t, 2.0f));
+                float c = 1.0f / std::sqrt(1.0f + std::pow(t, 2.0f));
                 float s = c * t;
 
                 for (std::size_t k = 0; k < n; ++k) {
@@ -587,7 +589,7 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
                 max_ratio = std::max(max_ratio, curr_ratio);
             }
         }
-        if (max_ratio < conv_criterion) {
+        if (max_ratio < tolerance_soft) {
             break;
         }
     }
@@ -630,15 +632,26 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, U, 2>& mat) {
     return SVD(mat, std::min(m, n));
 }
 
+template <typename Derived, isScalar T>
+Vec<T> normalize(const MatrixBase<Derived, T, 1>& vec) {
+    Vec<T> u = vec;
+    auto u_norm = norm(u);
+    if (u_norm < tolerance_hard) {
+        return u;
+    } else {
+        u /= u_norm;
+        return u;
+    }
+}
+
 template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
 Vec<T> Householder(const MatrixBase<Derived, U, 1>& vec) {
-    constexpr float tolerance = 1e-6;
     Vec<T> u = vec;
     T v1 = vec[0];
     auto v_norm = norm(vec);
     auto getSign = [&]() {
         if constexpr (isComplex<T>) {
-            if (std::abs(v1) < tolerance) {
+            if (std::abs(v1) < tolerance_soft) {
                 return static_cast<T>(1.0f);
             }
             return v1 / std::abs(v1);
@@ -648,9 +661,7 @@ Vec<T> Householder(const MatrixBase<Derived, U, 1>& vec) {
     };
     auto sign = getSign();
     u[0] += sign * v_norm;
-    auto u_norm = norm(u);
-    u /= u_norm;
-    return u;
+    return normalize(u);
 }
 
 template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
@@ -674,14 +685,12 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
 
     Mat<T> H = mat;
 
-    constexpr float tolerance = 1e-6;
-
     if (both) { // we want both upper and lower Hessenberg! (tridiagonal)
         // Note: the original matrix should be symmetric in this case.
         for (std::size_t k = 0; k < n - 1; ++k) {
             // erase below subdiagonal
             auto ck1 = H.col(k).submatrix(k + 1);
-            if (norm(ck1) > tolerance) {
+            if (norm(ck1) > tolerance_soft) {
                 auto vk1 = Householder(ck1);
                 // apply Householder from the left
                 auto Sub1 = H.submatrix({k + 1, k});
@@ -690,7 +699,7 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
 
             // erase right of superdiagonal
             auto ck2 = H.row(k).submatrix(k + 1);
-            if (norm(ck2) > tolerance) {
+            if (norm(ck2) > tolerance_soft) {
                 auto vk2 = Householder(ck2);
                 // apply Householder from the right
                 auto Sub2 = H.submatrix({k, k + 1});
@@ -701,7 +710,7 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
         for (std::size_t k = 0; k < n - 2; ++k) {
             // (n - k - 1) x 1
             auto ck = H.col(k).submatrix(k + 1);
-            if (norm(ck) < tolerance) {
+            if (norm(ck) < tolerance_soft) {
                 continue;
             }
             auto vk = Householder(ck);
@@ -720,6 +729,51 @@ Mat<T> Hessenberg(const MatrixBase<Derived, U, 2>& mat, bool both = false) {
 }
 
 namespace {
+
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
+std::pair<Mat<T>, Mat<T>> HessenbergWithVec(const MatrixBase<Derived, U, 2>& mat) {
+    std::size_t n = mat.dims(0);
+    std::size_t C = mat.dims(1);
+    Mat<T> V = identity<T>(n);
+    if (n != C) {
+        throw std::invalid_argument("Not a square matrix, cannot transform to Hessenberg");
+    }
+    if (n < 3) {
+        return {mat, V};
+    }
+
+    auto conjif = [&](const auto& v) {
+        if constexpr (isComplex<U>) {
+            return conj(v);
+        } else {
+            return v;
+        }
+    };
+
+    Mat<T> H = mat;
+
+
+    for (std::size_t k = 0; k < n - 2; ++k) {
+        // (n - k - 1) x 1
+        auto ck = H.col(k).submatrix(k + 1);
+        if (norm(ck) < tolerance_soft) {
+            continue;
+        }
+        auto vk = Householder(ck);
+
+        // apply Householder from the left
+        auto Sub1 = H.submatrix({k + 1, k});
+        Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
+
+        // apply Householder from the right
+        auto Sub2 = H.submatrix({0, k + 1});
+        Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
+        auto VSub2 = V.submatrix({0, k + 1});
+        VSub2 -= outer(dot(VSub2, 2.0f * vk), conjif(vk));
+    }
+
+    return {H, V};
+}
 
 template <isReal T>
 std::pair<T, T> Rayleigh(const T& a, const T& b, const T& c, const T& d) {
@@ -774,8 +828,37 @@ std::vector<T> eigenTwo(const MatrixBase<Derived, U, 2>& M) {
     }
 }
 
+template <typename Derived, isScalar T>
+void addNotNullColumn(std::vector<std::pair<T, Vec<T>>>& vec,
+                      const T& eigenv, const MatrixBase<Derived, T, 2>& emat) {
+    for (std::size_t i = 0; i < emat.dims(0); ++i) {
+        if (norm(emat.col(i)) > tolerance_soft) {
+            vec.emplace_back(eigenv, normalize(emat.col(i)));
+            return;
+        }
+    }
+}
+
 template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
-std::vector<T> eigenThree(const MatrixBase<Derived, U, 2>& M) {
+std::vector<std::pair<T, Vec<T>>> eigenVecTwo(const MatrixBase<Derived, U, 2>& M) {
+    std::vector<std::pair<T, Vec<T>>> res;
+    auto eigenvals = eigenTwo(M);
+    if (eigenvals.empty()) {
+        return {};
+    }
+    auto root1 = eigenvals[0];
+    auto root2 = eigenvals[1];
+    auto Id = identity<T>(2);
+    auto M1 = M - root2 * Id;
+    auto M2 = M - root1 * Id;
+
+    addNotNullColumn(res, root1, M1);
+    addNotNullColumn(res, root2, M2);
+    return res;
+}
+
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
+std::vector<T> eigenThreeImpl(const MatrixBase<Derived, U, 2>& M) {
     using UC = CmpTypeT<U>;
 
     // [[a, b, c]
@@ -819,22 +902,44 @@ std::vector<T> eigenThree(const MatrixBase<Derived, U, 2>& M) {
     C *= z;
     auto root3 = -(b_ + C + l0 / C) / 3.0f;
 
-    constexpr double tolerance = 1e-6;
+    return {root1, root2, root3};
+}
+
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
+std::vector<T> eigenThree(const MatrixBase<Derived, U, 2>& M) {
     if constexpr (isComplex<T>) {
-        return {root1, root2, root3};
+        return eigenThreeImpl(M);
     } else {
+        auto roots_raw = eigenThreeImpl(M);
         std::vector<T> roots;
-        if (std::imag(root1) < tolerance) {
-            roots.push_back(std::real(root1));
-        }
-        if (std::imag(root2) < tolerance) {
-            roots.push_back(std::real(root2));
-        }
-        if (std::imag(root3) < tolerance) {
-            roots.push_back(std::real(root3));
+        for (const auto& root_raw : roots_raw) {
+            if (std::imag(root_raw) < tolerance_soft) {
+                roots.push_back(std::real(root_raw));
+            }
         }
         return roots;
     }
+}
+
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
+std::vector<std::pair<T, Vec<T>>> eigenVecThree(const MatrixBase<Derived, U, 2>& M) {
+    std::vector<std::pair<T, Vec<T>>> res;
+    auto eigenvals = eigenThreeImpl(M);
+    auto root1 = eigenvals[0];
+    auto root2 = eigenvals[1];
+    auto root3 = eigenvals[2];
+    auto Id = identity<T>(3);
+    auto C1 = M - root1 * Id;
+    auto C2 = M - root2 * Id;
+    auto C3 = M - root3 * Id;
+    auto M1 = dot(C2, C3);
+    auto M2 = dot(C1, C3);
+    auto M3 = dot(C1, C2);
+
+    addNotNullColumn(res, root1, M1);
+    addNotNullColumn(res, root2, M2);
+    addNotNullColumn(res, root3, M3);
+    return res;
 }
 
 // QR algorithm used in eigendecomposition.
@@ -843,12 +948,7 @@ template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTy
 std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
     std::size_t n = mat.dims(0);
     // assumption : mat is (upper) Hessenberg
-    constexpr float tolerance_conv = 1e-6;
-    constexpr float tolerance_nonzero = 1e-9;
     assert(n > 3); // n <= 3 will be handled analytically
-
-    Mat<T> H = mat;
-    std::size_t p = n; // effective matrix size
 
     auto conjif = [&](const auto& v) {
         if constexpr (isComplex<U>) {
@@ -857,6 +957,9 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
             return v;
         }
     };
+
+    Mat<T> H = mat;
+    std::size_t p = n; // effective matrix size
 
     while (p > 2) {
         auto [s, t] = Rayleigh(H[{p - 2, p - 2}], H[{p - 2, p - 1}],
@@ -870,7 +973,7 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
         // repeatedly apply Householder
         for (std::size_t k = 0; k < p - 2; ++k) {
             Vec<T> v {x, y, z};
-            if (norm(v) > tolerance_nonzero) {
+            if (norm(v) > tolerance_hard) {
                 auto vk = Householder(v);
                 std::size_t r = (k == 0) ? 0 : (k - 1);
                 auto Sub1 = H.submatrix({k, r}, {k + 3, n});
@@ -889,7 +992,7 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
 
         // for last x and y, find Givens rotation
         auto rad = std::sqrt(std::pow(std::abs(x), 2.0f) + std::pow(std::abs(y), 2.0f));
-        if (rad > tolerance_nonzero) {
+        if (rad > tolerance_hard) {
             auto cos_val = x / rad;
             auto sin_val = y / rad;
             Mat<T> R{{cos_val,  sin_val},
@@ -904,12 +1007,12 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
         }
 
         // check convergence, deflate if necessary
-        if (std::abs(H[{p - 1, p - 2}]) < tolerance_conv *
-        std::max(std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
+        if (std::abs(H[{p - 1, p - 2}]) < tolerance_soft *
+                                          std::max(std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
             H[{p - 1, p - 2}] = T{0};
             p -= 1;
-        } else if (std::abs(H[{p - 2, p - 3}]) < tolerance_conv *
-        std::max(std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
+        } else if (std::abs(H[{p - 2, p - 3}]) < tolerance_soft *
+                                                 std::max(std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
             H[{p - 2, p - 3}] = T{0};
             p -= 2;
         }
@@ -917,13 +1020,117 @@ std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
 
     std::vector<T> res;
     for (std::size_t k = 0; k < n - 1; ) {
-        if (std::abs(H[{k + 1, k}]) > tolerance_conv) {
+        if (std::abs(H[{k + 1, k}]) > tolerance_soft) {
             auto H_four = H.submatrix({k, k}, {k + 2, k + 2});
             auto ev = eigenTwo(H_four);
             std::ranges::move(ev, std::back_inserter(res));
             k += 2;
         } else {
             res.push_back(H[{k, k}]);
+            k += 1;
+        }
+    }
+    return res;
+}
+
+// QR algorithm used in eigendecomposition.
+// not to be confused with QR decomposition
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
+std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U, 2>& mat,
+                                                     const MatrixBase<Derived, U, 2>& V) {
+    std::size_t n = mat.dims(0);
+    // assumption : mat is (upper) Hessenberg
+    assert(n > 3); // n <= 3 will be handled analytically
+
+    auto conjif = [&](const auto& v) {
+        if constexpr (isComplex<U>) {
+            return conj(v);
+        } else {
+            return v;
+        }
+    };
+
+    Mat<T> H = mat;
+    std::size_t p = n; // effective matrix size
+    Mat<T> M = V;
+
+    while (p > 2) {
+        auto [s, t] = Rayleigh(H[{p - 2, p - 2}], H[{p - 2, p - 1}],
+                               H[{p - 1, p - 2}], H[{p - 1, p - 1}]);
+
+        // compute first 3 elements of first column
+        auto x = H[{0, 0}] * H[{0, 0}] + H[{0, 1}] * H[{1, 0}] - s * H[{0, 0}] + t;
+        auto y = H[{1, 0}] * (H[{0, 0}] + H[{1, 1}] - s);
+        auto z = H[{1, 0}] * H[{2, 1}];
+
+        // repeatedly apply Householder
+        for (std::size_t k = 0; k < p - 2; ++k) {
+            Vec<T> v {x, y, z};
+            if (norm(v) > tolerance_hard) {
+                auto vk = Householder(v);
+                std::size_t r = (k == 0) ? 0 : (k - 1);
+                auto Sub1 = H.submatrix({k, r}, {k + 3, n});
+                Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
+//                auto MSub1 = M.submatrix({k, r}, {k + 3, n});
+//                MSub1 -= outer(vk, dot(2.0f * conjif(vk), MSub1));
+                r = std::min(k + 4, p);
+                auto Sub2 = H.submatrix({0, k}, {r, k + 3});
+                Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
+                auto MSub2 = M.submatrix({0, k}, {r, k + 3});
+                MSub2 -= outer(dot(MSub2, 2.0f * vk), conjif(vk));
+            }
+
+            x = H[{k + 1, k}];
+            y = H[{k + 2, k}];
+            if (k < p - 3) {
+                z = H[{k + 3, k}];
+            }
+        }
+
+        // for last x and y, find Givens rotation
+        auto rad = std::sqrt(std::pow(std::abs(x), 2.0f) + std::pow(std::abs(y), 2.0f));
+        if (rad > tolerance_hard) {
+            auto cos_val = x / rad;
+            auto sin_val = y / rad;
+            Mat<T> R{{cos_val,  sin_val},
+                     {-sin_val, cos_val}};
+            Mat<T> RT{{cos_val, -sin_val},
+                      {sin_val, cos_val}};
+
+            auto Sub1 = H.submatrix({p - 2, p - 3}, {p, n});
+            Sub1 = dot(conjif(RT), Sub1);
+//            auto MSub1 = M.submatrix({p - 2, p - 3}, {p, n});
+//            MSub1 = dot(conjif(RT), MSub1);
+            auto Sub2 = H.submatrix({0, p - 2}, {p, p});
+            Sub2 = dot(Sub2, R);
+            auto MSub2 = M.submatrix({0, p - 2}, {p, p});
+            MSub2 = dot(MSub2, R);
+        }
+
+        // check convergence, deflate if necessary
+        if (std::abs(H[{p - 1, p - 2}]) < tolerance_soft *
+                                          std::max(std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
+            H[{p - 1, p - 2}] = T{0};
+            p -= 1;
+        } else if (std::abs(H[{p - 2, p - 3}]) < tolerance_soft *
+                                                 std::max(std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
+            H[{p - 2, p - 3}] = T{0};
+            p -= 2;
+        }
+    }
+
+    std::vector<std::pair<T, Vec<T>>> res;
+    for (std::size_t k = 0; k < n - 1; ) {
+        if (std::abs(H[{k + 1, k}]) > tolerance_soft) {
+            auto H_four = H.submatrix({k, k}, {k + 2, k + 2});
+            auto ev = eigenVecTwo(H_four);
+            for (const auto& [val, vec] : ev) {
+                res.emplace_back(val, normalize(M.col(k++)));
+            }
+        } else {
+            if (norm(M.col(k)) > tolerance_soft) {
+                res.emplace_back(H[{k, k}], normalize(M.col(k)));
+            }
             k += 1;
         }
     }
@@ -949,6 +1156,28 @@ std::vector<T> eigenval(const MatrixBase<Derived, U, 2>& M) {
     } else { // for 4 x 4 we need advanced algorithm
         auto H = Hessenberg(M);
         return QRIteration(H);
+    }
+}
+
+template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
+std::vector<std::pair<T, Vec<T>>> eigenvec(const MatrixBase<Derived, U, 2>& M) {
+    std::size_t n = M.dims(0);
+    std::size_t C = M.dims(1);
+    if (n != C) {
+        throw std::invalid_argument("Not a square Matrix, cannot compute eigenvalues");
+    }
+
+    if (n == 1) { // 1 x 1
+        auto val = M[{0, 0}];
+        Vec<T> vec {T{1}};
+        return {{val, vec}};
+    } else if (n == 2) { // 2 x 2
+        return eigenVecTwo(M);
+    } else if (n == 3) { // 3 x 3
+        return eigenVecThree(M);
+    } else { // for 4 x 4 we need advanced algorithm
+        auto [H, V] = HessenbergWithVec(M);
+        return QRIterationWithVec(H, V);
     }
 }
 

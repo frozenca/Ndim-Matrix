@@ -13,10 +13,20 @@ int main() {
                      {-5, 2, 6, 6},
                      {-7, 2, 8, 9}};
 
-    auto H = fc::eigenval(A);
+//    auto H = fc::eigenval(A);
+//
+//    for (const auto& v : H) {
+//        std::cout << v << '\n';
+//    }
+//    std::cout << '\n';
 
-    for (const auto& h : H) {
-        std::cout << h << '\n';
+    auto H = fc::eigenvec(A);
+
+    fc::Mat<std::complex<float>> AC = A;
+
+    for (const auto& [v, V] : H) {
+        std::cout << v << ' ' << V << '\n';
+        std::cout << fc::normalize(fc::dot(AC, V)) << '\n';
     }
     std::cout << '\n';
 
@@ -25,12 +35,6 @@ int main() {
                      {0, 0, 0, 1},
                      {0, 0, -1, 0}};
 
-    auto H2 = fc::eigenval(B);
-
-    for (const auto& h : H2) {
-        std::cout << h << '\n';
-    }
-    std::cout << '\n';
 
 
 
