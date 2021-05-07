@@ -29,6 +29,7 @@ C++20 N-dimensional Matrix class for hobby project
 
 # ToDoList
 - Einsum
+- Coordinatewise initialization
 - FFT, pinv
 - Array manipulations like concat, split, row/column rotate, zeropad, etc (tedious...)
 - Expand linear algebra stuffs to >2D (tedious...)
