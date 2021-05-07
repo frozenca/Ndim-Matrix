@@ -11,8 +11,8 @@ namespace frozenca {
 
 namespace {
 
-static constexpr float tolerance_soft = 1e-6;
-static constexpr float tolerance_hard = 1e-9;
+constexpr float tolerance_soft = 1e-6;
+constexpr float tolerance_hard = 1e-10;
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
@@ -1071,12 +1071,12 @@ std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U
                 std::size_t r = (k == 0) ? 0 : (k - 1);
                 auto Sub1 = H.submatrix({k, r}, {k + 3, n});
                 Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
-//                auto MSub1 = M.submatrix({k, r}, {k + 3, n});
+//                auto MSub1 = M.submatrix({k, 0}, {k + 3, n});
 //                MSub1 -= outer(vk, dot(2.0f * conjif(vk), MSub1));
                 r = std::min(k + 4, p);
                 auto Sub2 = H.submatrix({0, k}, {r, k + 3});
                 Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
-                auto MSub2 = M.submatrix({0, k}, {r, k + 3});
+                auto MSub2 = M.submatrix({0, k}, {n, k + 3});
                 MSub2 -= outer(dot(MSub2, 2.0f * vk), conjif(vk));
             }
 
@@ -1099,11 +1099,11 @@ std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U
 
             auto Sub1 = H.submatrix({p - 2, p - 3}, {p, n});
             Sub1 = dot(conjif(RT), Sub1);
-//            auto MSub1 = M.submatrix({p - 2, p - 3}, {p, n});
+//            auto MSub1 = M.submatrix({p - 2, 0}, {p, n});
 //            MSub1 = dot(conjif(RT), MSub1);
             auto Sub2 = H.submatrix({0, p - 2}, {p, p});
             Sub2 = dot(Sub2, R);
-            auto MSub2 = M.submatrix({0, p - 2}, {p, p});
+            auto MSub2 = M.submatrix({0, p - 2}, {n, p});
             MSub2 = dot(MSub2, R);
         }
 
