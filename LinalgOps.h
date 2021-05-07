@@ -13,7 +13,8 @@ namespace {
 
 constexpr float tolerance_soft = 1e-6;
 constexpr float tolerance_hard = 1e-10;
-constexpr std::size_t max_iter = 20;
+constexpr std::size_t max_iter = 100;
+constexpr std::size_t local_iter = 15;
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
@@ -631,6 +632,18 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, U, 2>& mat) {
     return SVD(mat, std::min(m, n));
 }
 
+template <isScalar T>
+decltype(auto) getSign (const T& t) {
+    if constexpr (isComplex<T>) {
+        if (std::abs(t) < tolerance_soft) {
+            return static_cast<T>(1.0f);
+        }
+        return t / std::abs(t);
+    } else {
+        return std::signbit(t) ? -1.0f : +1.0f;
+    }
+};
+
 template <typename Derived, isScalar T>
 Vec<T> normalize(const MatrixBase<Derived, T, 1>& vec) {
     Vec<T> u = vec;
@@ -648,17 +661,7 @@ Vec<T> Householder(const MatrixBase<Derived, U, 1>& vec) {
     Vec<T> u = vec;
     T v1 = vec[0];
     auto v_norm = norm(vec);
-    auto getSign = [&]() {
-        if constexpr (isComplex<T>) {
-            if (std::abs(v1) < tolerance_soft) {
-                return static_cast<T>(1.0f);
-            }
-            return v1 / std::abs(v1);
-        } else {
-            return std::signbit(v1) ? -1.0f : +1.0f;
-        }
-    };
-    auto sign = getSign();
+    auto sign = getSign(v1);
     u[0] += sign * v_norm;
     return normalize(u);
 }
@@ -772,38 +775,6 @@ std::pair<Mat<T>, Mat<T>> HessenbergWithVec(const MatrixBase<Derived, U, 2>& mat
     }
 
     return {H, V};
-}
-
-template <isReal T>
-std::pair<T, T> Rayleigh(const T& a, const T& b, const T& c, const T& d) {
-    auto tr = a + d;
-    auto dt = a * d - b * c;
-    auto sq = tr * tr - 4.0f * dt;
-    if (sq >= 0) { // real eigenvalues or want complex eigenvalues
-        auto root1 = (tr + std::sqrt(sq)) / 2.0f;
-        auto root2 = (tr - std::sqrt(sq)) / 2.0f;
-
-        // choose the one closer to d
-        auto root = (std::abs(root1 - d) < std::abs(root2 - d)) ? root1 : root2;
-
-        // z^2 + bz + c = (z-r)^2
-        return {-2.0f * root, root * root};
-    } else { // don't want complex eigenvalues, we want char poly directly.
-        return {-tr, dt};
-    }
-}
-
-template <isComplex T>
-std::pair<T, T> Rayleigh(const T& a, const T& b, const T& c, const T& d) {
-    auto tr = a + d;
-    auto dt = a * d - b * c;
-    auto sq = tr * tr - 4.0f * dt;
-    auto root1 = (tr + std::sqrt(sq)) / 2.0f;
-    auto root2 = (tr - std::sqrt(sq)) / 2.0f;
-    // choose the one closer to d
-    auto root = (std::abs(root1 - d) < std::abs(root2 - d)) ? root1 : root2;
-    // z^2 + bz + c = (z-r)^2
-    return {-2.0f * root, root * root};
 }
 
 template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
@@ -941,115 +912,54 @@ std::vector<std::pair<T, Vec<T>>> eigenVecThree(const MatrixBase<Derived, U, 2>&
     return res;
 }
 
-// QR algorithm used in eigendecomposition.
-// not to be confused with QR decomposition
-template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
-std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
-    std::size_t n = mat.dims(0);
-    // assumption : mat is (upper) Hessenberg
-    assert(n > 3); // n <= 3 will be handled analytically
-
-    auto conjif = [&](const auto& v) {
-        if constexpr (isComplex<U>) {
-            return conj(v);
-        } else {
-            return v;
-        }
-    };
-
-    Mat<T> H = mat;
-    std::size_t p = n; // effective matrix size
-
-    std::size_t iter = 0;
-
-    while (p > 2) {
-        auto [s, t] = Rayleigh(H[{p - 2, p - 2}], H[{p - 2, p - 1}],
-                               H[{p - 1, p - 2}], H[{p - 1, p - 1}]);
-
-        // compute first 3 elements of first column
-        auto x = H[{0, 0}] * H[{0, 0}] + H[{0, 1}] * H[{1, 0}] - s * H[{0, 0}] + t;
-        auto y = H[{1, 0}] * (H[{0, 0}] + H[{1, 1}] - s);
-        auto z = H[{1, 0}] * H[{2, 1}];
-
-        // repeatedly apply Householder
-        for (std::size_t k = 0; k < p - 2; ++k) {
-            Vec<T> v {x, y, z};
-            if (norm(v) > tolerance_hard) {
-                auto vk = Householder(v);
-                std::size_t r = (k == 0) ? 0 : (k - 1);
-                auto Sub1 = H.submatrix({k, r}, {k + 3, n});
-                Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
-                r = std::min(k + 4, p);
-                auto Sub2 = H.submatrix({0, k}, {r, k + 3});
-                Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
-            }
-
-            x = H[{k + 1, k}];
-            y = H[{k + 2, k}];
-            if (k < p - 3) {
-                z = H[{k + 3, k}];
-            }
-        }
-
-        // for last x and y, find Givens rotation
-        auto rad = std::sqrt(std::pow(std::abs(x), 2.0f) + std::pow(std::abs(y), 2.0f));
-        if (rad > tolerance_hard) {
-            auto cos_val = x / rad;
-            auto sin_val = y / rad;
-            Mat<T> R{{cos_val,  sin_val},
-                     {-sin_val, cos_val}};
-            Mat<T> RT{{cos_val, -sin_val},
-                      {sin_val, cos_val}};
-
-            auto Sub1 = H.submatrix({p - 2, p - 3}, {p, n});
-            Sub1 = dot(conjif(RT), Sub1);
-            auto Sub2 = H.submatrix({0, p - 2}, {p, p});
-            Sub2 = dot(Sub2, R);
-        }
-
-        if (++iter > max_iter) {
-            iter = 0;
-            p -= 1;
-            continue;
-        }
-
-        // check convergence, deflate if necessary
-        if (std::abs(H[{p - 1, p - 2}]) < tolerance_soft *
-                                          std::max(std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
-            H[{p - 1, p - 2}] = T{0};
-            p -= 1;
-            iter = 0;
-        } else if (std::abs(H[{p - 2, p - 3}]) < tolerance_soft *
-                                                 std::max(std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
-            H[{p - 2, p - 3}] = T{0};
-            p -= 2;
-            iter = 0;
-        }
+template <typename Derived, isScalar T>
+bool isSubdiagonalNeglegible(MatrixBase<Derived, T, 2>& M, std::size_t idx) {
+    if (std::abs(M[{idx + 1, idx}]) <
+        tolerance_soft * (std::abs(M[{idx, idx}]) + std::abs(M[{idx + 1, idx + 1}]))) {
+        M[{idx + 1, idx}] = T{0};
+        return true;
     }
+    return false;
+}
 
-    std::vector<T> res;
-    for (std::size_t k = 0; k < n - 1; ) {
-        if (std::abs(H[{k + 1, k}]) > tolerance_soft) {
-            auto H_four = H.submatrix({k, k}, {k + 2, k + 2});
-            auto ev = eigenTwo(H_four);
-            std::ranges::move(ev, std::back_inserter(res));
-            k += 2;
-        } else {
-            res.push_back(H[{k, k}]);
-            k += 1;
-        }
+template <isScalar T>
+T computeShift(const T& a, const T& b, const T& c, const T& d) {
+    auto tr = a + d;
+    auto det = a * d - b * c;
+    auto disc = std::sqrt(tr * tr - 4.0f * det);
+    auto root1 = (tr + disc) / 2.0f;
+    auto root2 = (tr - disc) / 2.0f;
+    if (std::abs(root1 - d) < std::abs(root2 - d)) {
+        return root1;
+    } else {
+        return root2;
     }
-    return res;
+}
+
+template <isScalar T, isReal U = RealTypeT<T>>
+std::tuple<T, T, U> givensRotation(const T& a, const T& b) {
+    if (b == T{0}) {
+        return {getSign(a), 0, std::abs(a)};
+    } else if (a == T{0}) {
+        return {0, getSign(b), std::abs(b)};
+    } else if (std::abs(a) > std::abs(b)) {
+        auto t = b / a;
+        auto u = getSign(a) * std::sqrt(1.0f + t * t);
+        return {1.0f / u, t / u, std::abs(a * u)};
+    } else {
+        auto t = a / b;
+        auto u = getSign(b) * std::sqrt(1.0f + t * t);
+        return {t / u, 1.0f / u, std::abs(b * u)};
+    }
 }
 
 // QR algorithm used in eigendecomposition.
 // not to be confused with QR decomposition
 template <typename Derived, isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
-std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U, 2>& mat,
-                                                     const MatrixBase<Derived, U, 2>& V) {
+std::vector<T> QRIteration(const MatrixBase<Derived, U, 2>& mat) {
+    std::size_t iter = 0;
+    std::size_t total_iter = 0;
     std::size_t n = mat.dims(0);
-    // assumption : mat is (upper) Hessenberg
-    assert(n > 3); // n <= 3 will be handled analytically
 
     auto conjif = [&](const auto& v) {
         if constexpr (isComplex<U>) {
@@ -1059,97 +969,185 @@ std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U
         }
     };
 
-    Mat<T> H = mat;
-    std::size_t p = n; // effective matrix size
-    Mat<T> M = V;
-
-    std::size_t iter = 0;
-
-    while (p > 2) {
-        auto [s, t] = Rayleigh(H[{p - 2, p - 2}], H[{p - 2, p - 1}],
-                               H[{p - 1, p - 2}], H[{p - 1, p - 1}]);
-
-        // compute first 3 elements of first column
-        auto x = H[{0, 0}] * H[{0, 0}] + H[{0, 1}] * H[{1, 0}] - s * H[{0, 0}] + t;
-        auto y = H[{1, 0}] * (H[{0, 0}] + H[{1, 1}] - s);
-        auto z = H[{1, 0}] * H[{2, 1}];
-
-        // repeatedly apply Householder
-        for (std::size_t k = 0; k < p - 2; ++k) {
-            Vec<T> v {x, y, z};
-            if (norm(v) > tolerance_hard) {
-                auto vk = Householder(v);
-                std::size_t r = (k == 0) ? 0 : (k - 1);
-                auto Sub1 = H.submatrix({k, r}, {k + 3, n});
-                Sub1 -= outer(vk, dot(2.0f * conjif(vk), Sub1));
-//                auto MSub1 = M.submatrix({k, 0}, {k + 3, n});
-//                MSub1 -= outer(vk, dot(2.0f * conjif(vk), MSub1));
-                r = std::min(k + 4, p);
-                auto Sub2 = H.submatrix({0, k}, {r, k + 3});
-                Sub2 -= outer(dot(Sub2, 2.0f * vk), conjif(vk));
-                auto MSub2 = M.submatrix({0, k}, {n, k + 3});
-                MSub2 -= outer(dot(MSub2, 2.0f * vk), conjif(vk));
+    Mat<T> M = mat;
+    std::size_t p = n - 1;
+    while (true) {
+        while (p > 0) {
+            if (!isSubdiagonalNeglegible(M, p - 1)) {
+                break;
             }
-
-            x = H[{k + 1, k}];
-            y = H[{k + 2, k}];
-            if (k < p - 3) {
-                z = H[{k + 3, k}];
-            }
-        }
-
-        // for last x and y, find Givens rotation
-        auto rad = std::sqrt(std::pow(std::abs(x), 2.0f) + std::pow(std::abs(y), 2.0f));
-        if (rad > tolerance_hard) {
-            auto cos_val = x / rad;
-            auto sin_val = y / rad;
-            Mat<T> R{{cos_val,  sin_val},
-                     {-sin_val, cos_val}};
-            Mat<T> RT{{cos_val, -sin_val},
-                      {sin_val, cos_val}};
-
-            auto Sub1 = H.submatrix({p - 2, p - 3}, {p, n});
-            Sub1 = dot(conjif(RT), Sub1);
-//            auto MSub1 = M.submatrix({p - 2, 0}, {p, n});
-//            MSub1 = dot(conjif(RT), MSub1);
-            auto Sub2 = H.submatrix({0, p - 2}, {p, p});
-            Sub2 = dot(Sub2, R);
-            auto MSub2 = M.submatrix({0, p - 2}, {n, p});
-            MSub2 = dot(MSub2, R);
-        }
-
-        if (++iter > max_iter) {
             iter = 0;
-            p -= 1;
-            continue;
+            --p;
+        }
+        if (p == 0) {
+            break;
+        }
+        if (++iter > local_iter) {
+            break;
+        }
+        if (++total_iter > max_iter) {
+            break;
+        }
+        std::size_t top = p - 1;
+        while (top > 0 && !isSubdiagonalNeglegible(M, top - 1)) {
+            --top;
+        }
+        auto shift = computeShift(M[{p - 1, p - 1}], M[{p - 1, p}],
+                                  M[{p, p - 1}], M[{p, p}]);
+
+        // initial Givens rotation
+        auto x = M[{top, top}] - shift;
+        auto y = M[{top + 1, top}];
+        auto [c, s, r] = givensRotation(x, y);
+        Mat<T> R {{c, -s},
+                  {s, c}};
+        Mat<T> RT{{c, s},
+                  {-s, c}};
+        if (r > tolerance_hard) {
+            auto Sub1 = M.submatrix({top, top}, {top + 2, n});
+            Sub1 = dot(conjif(RT), Sub1);
+            std::size_t bottom = std::min(top + 3, p + 1);
+            auto Sub2 = M.submatrix({0, top}, {bottom, top + 2});
+            Sub2 = dot(Sub2, R);
+        }
+        for (std::size_t k = top + 1; k < p; ++k) {
+            x = M[{k, k - 1}];
+            y = M[{k + 1, k - 1}];
+            std::tie(c, s, r) = givensRotation(x, y);
+            if (r > tolerance_hard) {
+                M[{k, k - 1}] = r;
+                M[{k + 1, k - 1}] = T{0};
+                R[{0, 0}] = RT[{0, 0}] = R[{1, 1}] = RT[{1, 1}] = c;
+                R[{0, 1}] = RT[{1, 0}] = -s;
+                R[{1, 0}] = RT[{0, 1}] = s;
+
+                auto Sub1 = M.submatrix({k, k}, {k + 2, n});
+                Sub1 = dot(conjif(RT), Sub1);
+                std::size_t bottom = std::min(k + 3, p + 1);
+                auto Sub2 = M.submatrix({0, k}, {bottom, k + 2});
+                Sub2 = dot(Sub2, R);
+            }
         }
 
-        // check convergence, deflate if necessary
-        if (std::abs(H[{p - 1, p - 2}]) < tolerance_soft *
-                                          std::max(std::abs(H[{p - 2, p - 2}]) + std::abs(H[{p - 1, p - 1}]), 1.0f)) {
-            H[{p - 1, p - 2}] = T{0};
-            p -= 1;
-        } else if (std::abs(H[{p - 2, p - 3}]) < tolerance_soft *
-                                                 std::max(std::abs(H[{p - 3, p - 3}]) + std::abs(H[{p - 2, p - 2}]), 1.0f)) {
-            H[{p - 2, p - 3}] = T{0};
-            p -= 2;
+    }
+    std::vector<T> res;
+    for (std::size_t k = 0; k < n; ++k) {
+        res.push_back(M[{k, k}]);
+    }
+    return res;
+}
+
+template <typename Derived, typename Derived2, isScalar T>
+Mat<T> computeEigenvectors(const MatrixBase<Derived, T, 2>& M,
+                           const MatrixBase<Derived2, T, 2>& Q) {
+    std::size_t n = M.dims(0);
+    Mat<T> X = identity<T>(n);
+
+    for (std::size_t k = n - 1; k < n; --k) {
+        for (std::size_t i = k - 1; i < n; --i) {
+            X[{i, k}] -= M[{i, k}];
+            if (k - i > 1 && k - i - 1 < n) {
+                auto row_vec = M.row(i).submatrix(i + 1, k);
+                auto col_vec = X.col(k).submatrix(i + 1, k);
+                X[{i, k}] -= dot(row_vec, col_vec);
+            }
+            auto z = M[{i, i}] - M[{k, k}];
+            if (z == T{0}) {
+                z = static_cast<T>(tolerance_hard);
+            }
+            X[{i, k}] /= z;
         }
     }
+    return dot(Q, X);
+}
 
-    std::vector<std::pair<T, Vec<T>>> res;
-    for (std::size_t k = 0; k < n - 1; ) {
-        if (std::abs(H[{k + 1, k}]) > tolerance_soft) {
-            auto H_four = H.submatrix({k, k}, {k + 2, k + 2});
-            auto ev = eigenVecTwo(H_four);
-            for (const auto& [val, vec] : ev) {
-                res.emplace_back(val, normalize(M.col(k++)));
-            }
+// QR algorithm used in eigendecomposition.
+// not to be confused with QR decomposition
+template <typename Derived, typename Derived2,
+        isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
+std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U, 2>& mat,
+                                  const MatrixBase<Derived2, U, 2>& V) {
+    std::size_t iter = 0;
+    std::size_t total_iter = 0;
+    std::size_t n = mat.dims(0);
+
+    auto conjif = [&](const auto& v) {
+        if constexpr (isComplex<U>) {
+            return conj(v);
         } else {
-            if (norm(M.col(k)) > tolerance_soft) {
-                res.emplace_back(H[{k, k}], normalize(M.col(k)));
-            }
-            k += 1;
+            return v;
         }
+    };
+
+    Mat<T> M = mat;
+    std::size_t p = n - 1;
+    Mat<T> Q = V;
+    while (true) {
+        while (p > 0) {
+            if (!isSubdiagonalNeglegible(M, p - 1)) {
+                break;
+            }
+            iter = 0;
+            --p;
+        }
+        if (p == 0) {
+            break;
+        }
+        if (++iter > 20) {
+            break;
+        }
+        if (++total_iter > max_iter) {
+            break;
+        }
+        std::size_t top = p - 1;
+        while (top > 0 && !isSubdiagonalNeglegible(M, top - 1)) {
+            --top;
+        }
+        auto shift = computeShift(M[{p - 1, p - 1}], M[{p - 1, p}],
+                                  M[{p, p - 1}], M[{p, p}]);
+
+        // initial Givens rotation
+        auto x = M[{top, top}] - shift;
+        auto y = M[{top + 1, top}];
+        auto [c, s, r] = givensRotation(x, y);
+        Mat<T> R {{c, -s},
+                  {s, c}};
+        Mat<T> RT{{c, s},
+                  {-s, c}};
+        if (r > tolerance_hard) {
+            auto Sub1 = M.submatrix({top, top}, {top + 2, n});
+            Sub1 = dot(conjif(RT), Sub1);
+            std::size_t bottom = std::min(top + 3, p + 1);
+            auto Sub2 = M.submatrix({0, top}, {bottom, top + 2});
+            Sub2 = dot(Sub2, R);
+            auto QSub2 = Q.submatrix({0, top}, {n, top + 2});
+            QSub2 = dot(QSub2, R);
+        }
+        for (std::size_t k = top + 1; k < p; ++k) {
+            x = M[{k, k - 1}];
+            y = M[{k + 1, k - 1}];
+            std::tie(c, s, r) = givensRotation(x, y);
+            if (r > tolerance_hard) {
+                M[{k, k - 1}] = r;
+                M[{k + 1, k - 1}] = T{0};
+                R[{0, 0}] = RT[{0, 0}] = R[{1, 1}] = RT[{1, 1}] = c;
+                R[{0, 1}] = RT[{1, 0}] = -s;
+                R[{1, 0}] = RT[{0, 1}] = s;
+
+                auto Sub1 = M.submatrix({k, k}, {k + 2, n});
+                Sub1 = dot(conjif(RT), Sub1);
+                std::size_t bottom = std::min(k + 3, p + 1);
+                auto Sub2 = M.submatrix({0, k}, {bottom, k + 2});
+                Sub2 = dot(Sub2, R);
+                auto QSub2 = Q.submatrix({0, k}, {n, k + 2});
+                QSub2 = dot(QSub2, R);
+            }
+        }
+    }
+    std::vector<std::pair<T, Vec<T>>> res;
+    auto eV = computeEigenvectors(M, Q);
+    for (std::size_t k = 0; k < n; ++k) {
+        res.emplace_back(M[{k, k}], normalize(eV.col(k)));
     }
     return res;
 }
