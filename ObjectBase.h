@@ -112,7 +112,7 @@ public:
 template <typename Derived>
 template <typename F> requires std::invocable<F, typename Derived::reference>
 ObjectBase<Derived>& ObjectBase<Derived>::applyFunction(F&& f) {
-    std::for_each(std::execution::par_unseq, begin(), end(), f);
+    std::for_each(begin(), end(), f);
     return *this;
 }
 

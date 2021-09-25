@@ -19,44 +19,42 @@ constexpr std::size_t local_iter = 15;
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
 void DotTo(T& m,
-           const MatrixView<U, 1>& m1,
-           const MatrixView<V, 1>& m2) {
-    m += std::transform_reduce(std::execution::par_unseq, std::begin(m1), std::end(m1), std::begin(m2), T{0});
+           const MatrixView<U, 1, true>& m1,
+           const MatrixView<V, 1, true>& m2) {
+    m += std::inner_product(std::begin(m1), std::end(m1), std::begin(m2), T{0});
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
-void DotTo(MatrixView<T, 1>& m,
-           const MatrixView<U, 1>& m1,
-           const MatrixView<V, 2>& m2) {
+void DotTo(MatrixView<T, 1, false>& m,
+           const MatrixView<U, 1, true>& m1,
+           const MatrixView<V, 2, true>& m2) {
     assert(m.dims(0) == m2.dims(1));
     std::size_t c = m.dims(0);
     for (std::size_t j = 0; j < c; ++j) {
         auto col2 = m2.col(j);
-        m[j] += std::transform_reduce(std::execution::par_unseq,
-                                      std::begin(m1), std::end(m1), std::begin(col2), T{0});
+        m[j] += std::inner_product(std::begin(m1), std::end(m1), std::begin(col2), T{0});
     }
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
-void DotTo(MatrixView<T, 1>& m,
-           const MatrixView<U, 2>& m1,
-           const MatrixView<V, 1>& m2) {
+void DotTo(MatrixView<T, 1, false>& m,
+           const MatrixView<U, 2, true>& m1,
+           const MatrixView<V, 1, true>& m2) {
     assert(m.dims(0) == m1.dims(0));
     std::size_t r = m.dims(0);
     for (std::size_t j = 0; j < r; ++j) {
         auto row1 = m1.row(j);
-        m[j] += std::transform_reduce(std::execution::par_unseq,
-                                      std::begin(row1), std::end(row1), std::begin(m2), T{0});
+        m[j] += std::inner_product(std::begin(row1), std::end(row1), std::begin(m2), T{0});
     }
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T, std::size_t N2>
 requires DotProductableTo<U, V, T> && (N2 > 2)
-void DotTo(MatrixView<T, N2 - 1>& m,
-           const MatrixView<U, 1>& m1,
-           const MatrixView<V, N2>& m2) {
+void DotTo(MatrixView<T, N2 - 1, false>& m,
+           const MatrixView<U, 1, true>& m1,
+           const MatrixView<V, N2, true>& m2) {
     assert(m.dims(0) == m2.dims(0));
     std::size_t r = m.dims(0);
     for (std::size_t i = 0; i < r; ++i) {
@@ -69,9 +67,9 @@ void DotTo(MatrixView<T, N2 - 1>& m,
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2>
 requires DotProductableTo<U, V, T> && (N1 > 1)
-void DotTo(MatrixView<T, N1 - 1>& m,
-           const MatrixView<U, N1>& m1,
-           const MatrixView<V, 1>& m2) {
+void DotTo(MatrixView<T, N1 - 1, false>& m,
+           const MatrixView<U, N1, true>& m1,
+           const MatrixView<V, 1, true>& m2) {
     assert(m.dims(0) == m1.dims(0));
     std::size_t r = m.dims(0);
     for (std::size_t i = 0; i < r; ++i) {
@@ -84,9 +82,9 @@ void DotTo(MatrixView<T, N1 - 1>& m,
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2>
 requires DotProductableTo<U, V, T> && (N1 + N2 > 2)
-void DotTo(MatrixView<T, N1 + N2 - 2>& m,
-           const MatrixView<U, N1>& m1,
-           const MatrixView<V, N2>& m2) {
+void DotTo(MatrixView<T, N1 + N2 - 2, false>& m,
+           const MatrixView<U, N1, true>& m1,
+           const MatrixView<V, N2, true>& m2) {
     assert(m.dims(0) == m1.dims(0));
     std::size_t r = m.dims(0);
     for (std::size_t i = 0; i < r; ++i) {
@@ -103,9 +101,9 @@ requires DotProductableTo<U, V, T> && (N1 + N2 > 2)
 void DotTo(MatrixBase<Derived0, T, (N1 + N2 - 2)>& m,
            const MatrixBase<Derived1, U, N1>& m1,
            const MatrixBase<Derived2, V, N2>& m2) {
-    MatrixView<T, (N1 + N2 - 2)> m_view (m);
-    MatrixView<U, N1> m1_view (m1);
-    MatrixView<V, N2> m2_view (m2);
+    MatrixView<T, (N1 + N2 - 2), false> m_view (m);
+    MatrixView<U, N1, true> m1_view (m1);
+    MatrixView<V, N2, true> m2_view (m2);
     DotTo(m_view, m1_view, m2_view);
 }
 
@@ -115,17 +113,17 @@ requires DotProductableTo<U, V, T>
 void DotTo(T& m,
            const MatrixBase<Derived1, U, 1>& m1,
            const MatrixBase<Derived2, V, 1>& m2) {
-    MatrixView<U, 1> m1_view (m1);
-    MatrixView<V, 1> m2_view (m2);
+    MatrixView<U, 1, true> m1_view (m1);
+    MatrixView<V, 1, true> m2_view (m2);
     DotTo(m, m1_view, m2_view);
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires DotProductableTo<U, V, T> && (std::max(N1, N2) == N)
-void MatmulTo(MatrixView<T, N>& m,
-           const MatrixView<U, N1>& m1,
-           const MatrixView<V, N2>& m2) {
+void MatmulTo(MatrixView<T, N, false>& m,
+              const MatrixView<U, N1, true>& m1,
+              const MatrixView<V, N2, true>& m2) {
     if constexpr (N == 2) {
         DotTo(m, m1, m2);
     } else {
@@ -210,16 +208,16 @@ decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<De
     Matrix<T, N> res = zeros<T, N>(dims);
     auto m1_view = [&](){
         if constexpr (N1 == 1) {
-            return MatrixView<U, 2>({1, m1.dims(0)}, const_cast<U*>(m1.dataView()), {m1.dims(0), 1});
+            return MatrixView<U, 2, true>({1, m1.dims(0)}, m1.dataView(), {m1.dims(0), 1});
         } else {
-            return MatrixView<U, N1>(m1);
+            return MatrixView<U, N1, true>(m1);
         }
     };
     auto m2_view = [&](){
         if constexpr (N2 == 1) {
-            return MatrixView<V, 2>({m2.dims(0), 1}, const_cast<V*>(m2.dataView()), {1, 1});
+            return MatrixView<V, 2, true>({m2.dims(0), 1}, m2.dataView(), {1, 1});
         } else {
-            return MatrixView<V, N2>(m2);
+            return MatrixView<V, N2, true>(m2);
         }
     };
     if constexpr (N == 2) {
@@ -471,10 +469,10 @@ T norm(const MatrixBase<Derived, U, 1>& vec, std::size_t p = 2) {
     if (p == 0) {
         throw std::invalid_argument("Norm is undefined");
     } else if (p == 1) {
-        return std::abs(std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
+        return std::abs(std::accumulate(std::begin(vec), std::end(vec),
                            U{0}, [](U accu, U val) { return accu + std::abs(val); }));
     }
-    T pow_sum = std::abs(std::reduce(std::execution::par_unseq, std::begin(vec), std::end(vec),
+    T pow_sum = std::abs(std::accumulate(std::begin(vec), std::end(vec),
                             U{0}, [&p](U accu, U val) { return accu + std::pow(std::abs(val), static_cast<float>(p)); }));
     return std::pow(pow_sum, 1.0f / static_cast<float>(p));
 }
@@ -482,7 +480,7 @@ T norm(const MatrixBase<Derived, U, 1>& vec, std::size_t p = 2) {
 template <typename Derived, isScalar U, isReal T = RealTypeT < U>> requires RealTypeTo<U, T>
 T norm(const MatrixBase<Derived, U, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
     if (p == 2 && q == 2) { // Frobenius norm
-        T pow_sum = std::abs(std::reduce(std::execution::par_unseq, std::begin(mat), std::end(mat),
+        T pow_sum = std::abs(std::accumulate(std::begin(mat), std::end(mat),
                                 U{0}, [](U accu, U val) { return accu + std::pow(std::abs(val), 2.0f); }));
         return std::sqrt(pow_sum);
     }
@@ -618,9 +616,9 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
     for (std::size_t i = 0; i < trunc; ++i) {
         auto [val, idx] = pq.top();
         pq.pop();
-        std::swap_ranges(std::execution::par_unseq, U_.col(i).begin(), U_.col(i).end(), U.col(idx).begin());
+        std::swap_ranges(U_.col(i).begin(), U_.col(i).end(), U.col(idx).begin());
         Sigma_[{i, i}] = Sigma[{idx, idx}];
-        std::swap_ranges(std::execution::par_unseq, V_.col(i).begin(), V_.col(i).end(), V.col(idx).begin());
+        std::swap_ranges(V_.col(i).begin(), V_.col(i).end(), V.col(idx).begin());
     }
     return {U_, Sigma_, V_};
 }

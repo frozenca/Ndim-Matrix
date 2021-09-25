@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cassert>
 #include <complex>
 #include <concepts>
@@ -26,7 +27,7 @@ using Mat = Matrix<T, 2>;
 template <std::semiregular T>
 using Vec = Matrix<T, 1>;
 
-template <std::semiregular T, std::size_t N>
+template <std::semiregular T, std::size_t N, bool Const = false>
 class MatrixView;
 
 template <typename Derived, std::semiregular T, std::size_t N>

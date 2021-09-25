@@ -75,7 +75,7 @@ private:
     : Base(dims), data_(std::move(buffer)) {}
 
     // only invoked by transpose
-    Matrix(const std::array<std::size_t, N>& new_dims, const MatrixView<T, N>& view) noexcept
+    Matrix(const std::array<std::size_t, N>& new_dims, MatrixView<T, N, true>& view) noexcept
             : Base(new_dims), data_(std::make_unique<T[]>(size())) {
         std::size_t index = 0;
         for (auto it = std::cbegin(view); it != std::cend(view); ++it) {
@@ -227,7 +227,7 @@ private:
             : Base(dims), data_(std::move(buffer)) {}
 
     // only invoked by transpose
-    Matrix(const std::array<std::size_t, 1>& new_dims, const MatrixView<T, 1>& view) noexcept
+    Matrix(const std::array<std::size_t, 1>& new_dims, MatrixView<T, 1, true>& view) noexcept
             : Base(new_dims), data_(std::make_unique<T[]>(dims(0))) {
         std::size_t index = 0;
         for (auto it = std::cbegin(view); it != std::cend(view); ++it) {
@@ -303,8 +303,7 @@ Matrix<T, M> reshaped(Matrix<T, N>&& orig, const std::array<std::size_t, M>& new
 
 template <std::semiregular T, std::size_t M, std::size_t N>
 Matrix<T, M> reshape(Matrix<T, N>&& orig, const std::array<std::size_t, M>& new_dims) {
-    auto new_size = std::reduce(std::execution::par_unseq,
-                                std::begin(new_dims), std::end(new_dims), 1lu, std::multiplies<>{});
+    auto new_size = std::accumulate(std::begin(new_dims), std::end(new_dims), 1lu, std::multiplies<>{});
     if (new_size != orig.size()) {
         throw std::invalid_argument("Cannot reshape, size is different");
     }
@@ -326,7 +325,7 @@ Matrix<T, N> transpose(const MatrixBase<Derived, T, N>& orig, const std::array<s
         trans_strides[i] = orig.strides(perm[i]);
     }
     std::array<std::size_t, N> pos_begin = {0};
-    MatrixView<T, N> trans_view (trans_dims, const_cast<T*>(orig.dataView()), trans_strides);
+    MatrixView<T, N, true> trans_view (trans_dims, orig.dataView(), trans_strides);
     Matrix<T, N> transposed(trans_dims, trans_view);
     return transposed;
 }
