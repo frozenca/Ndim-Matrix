@@ -1,7 +1,7 @@
 #ifndef FROZENCA_MATRIXVIEW_H
 #define FROZENCA_MATRIXVIEW_H
 
-#include <variant>
+#include <compare>
 #include "MatrixBase.h"
 
 namespace frozenca {
