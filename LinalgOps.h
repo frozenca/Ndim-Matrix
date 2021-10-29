@@ -599,8 +599,6 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
         return std::abs(p1.first) < std::abs(p2.first);
     };
 
-    std::cout << U << '\n';
-
     std::priority_queue<std::pair<T, std::size_t>,
             std::vector<std::pair<T, std::size_t>>,
             decltype(comp)> pq(comp);
