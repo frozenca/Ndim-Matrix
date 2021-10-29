@@ -81,6 +81,7 @@ public:
             offset_ = std::inner_product(std::cbegin(pos_), std::cend(pos_), std::cbegin(ptr_->origStrides()), 0lu);
             index_ = std::inner_product(std::cbegin(pos_), std::cend(pos_), std::cbegin(ptr_->strides()), 0lu);
             assert(index_ <= ptr_->size());
+
         }
 
         void Increment() {
@@ -202,7 +203,7 @@ public:
 
     template <bool IterConst>
     friend bool operator==(const MVIterator<IterConst>& it1, const MVIterator<IterConst>& it2) {
-        return it1.ptr_ == it2.ptr_ && it1.index_ == it2.index_;
+        return it1.ptr_->data_view_ + it1.index_ == it2.ptr_->data_view_ + it2.index_;
     }
 
     template <bool IterConst>
@@ -212,7 +213,7 @@ public:
 
     template <bool IterConst1, bool IterConst2>
     friend auto operator<=>(const MVIterator<IterConst1>& it1, const MVIterator<IterConst2>& it2) {
-        return it1.pos_ <=> it2.pos_;
+        return it1.ptr_->data_view_ + it1.index_ <=> it2.ptr_->data_view_ + it2.index_;
     }
 
     using iterator = MVIterator<Const>;

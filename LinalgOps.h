@@ -470,10 +470,10 @@ T norm(const MatrixBase<Derived, U, 1>& vec, std::size_t p = 2) {
         throw std::invalid_argument("Norm is undefined");
     } else if (p == 1) {
         return std::abs(std::accumulate(std::begin(vec), std::end(vec),
-                           U{0}, [](U accu, U val) { return accu + std::abs(val); }));
+                                        U{0}, [](U accu, U val) { return accu + std::abs(val); }));
     }
     T pow_sum = std::abs(std::accumulate(std::begin(vec), std::end(vec),
-                            U{0}, [&p](U accu, U val) { return accu + std::pow(std::abs(val), static_cast<float>(p)); }));
+                                         U{0}, [&p](U accu, U val) { return accu + std::pow(std::abs(val), static_cast<float>(p)); }));
     return std::pow(pow_sum, 1.0f / static_cast<float>(p));
 }
 
@@ -481,7 +481,7 @@ template <typename Derived, isScalar U, isReal T = RealTypeT < U>> requires Real
 T norm(const MatrixBase<Derived, U, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
     if (p == 2 && q == 2) { // Frobenius norm
         T pow_sum = std::abs(std::accumulate(std::begin(mat), std::end(mat),
-                                U{0}, [](U accu, U val) { return accu + std::pow(std::abs(val), 2.0f); }));
+                                             U{0}, [](U accu, U val) { return accu + std::pow(std::abs(val), 2.0f); }));
         return std::sqrt(pow_sum);
     }
     std::size_t R = mat.dims(0);
@@ -555,15 +555,19 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
         }
     };
 
+    auto frob_norm = norm(mat);
+    float sum_inners = 0.0f;
+
     while (++iter < max_iter) {
-        float max_ratio = 0.0f;
+        float ratio = 0.0f;
         for (std::size_t i = 0; i < m; ++i) {
-            auto ri = U.row(i);
+            auto ri = U.col(i);
             for (std::size_t j = i + 1; j < m; ++j) {
-                auto rj = U.row(j);
+                auto rj = U.col(j);
                 auto alpha = dot_func(ri, ri);
                 auto beta = dot_func(rj, rj);
                 auto gamma = dot_func(ri, rj);
+                sum_inners += gamma;
                 float zeta = compute_zeta(alpha, beta, gamma);
                 auto sign = std::signbit(zeta) ? -1.0f : +1.0f;
                 auto t = sign / (std::abs(zeta) + std::sqrt(1.0f + std::pow(zeta, 2.0f)));
@@ -583,11 +587,10 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
                     V[{k, i}] = c * rot1 - s * rot2;
                     V[{k, j}] = s * rot1 + c * rot2;
                 }
-                float curr_ratio = std::abs(c) / std::sqrt(std::abs(beta * alpha));
-                max_ratio = std::max(max_ratio, curr_ratio);
+                ratio = sum_inners / frob_norm;
             }
         }
-        if (max_ratio < tolerance_soft) {
+        if (ratio < tolerance_soft) {
             break;
         }
     }
@@ -596,17 +599,20 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
         return std::abs(p1.first) < std::abs(p2.first);
     };
 
+    std::cout << U << '\n';
+
     std::priority_queue<std::pair<T, std::size_t>,
             std::vector<std::pair<T, std::size_t>>,
             decltype(comp)> pq(comp);
     for (std::size_t j = 0; j < m; ++j) {
-        auto rj = U.row(j);
+        auto rj = U.col(j);
         Sigma[{j, j}] = std::sqrt(dot_func(rj, rj));
         if (Sigma[{j, j}] != T{0}) {
             rj /= Sigma[{j, j}];
         }
         pq.emplace(Sigma[{j, j}], j);
     }
+
     if (trunc > std::min(m, n)) {
         trunc = std::min(m, n);
     }
@@ -620,14 +626,46 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
         Sigma_[{i, i}] = Sigma[{idx, idx}];
         std::swap_ranges(V_.col(i).begin(), V_.col(i).end(), V.col(idx).begin());
     }
+    std::cout << U_ << '\n';
     return {U_, Sigma_, V_};
 }
 
-template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
 std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, U, 2>& mat) {
     std::size_t m = mat.dims(0);
     std::size_t n = mat.dims(1);
     return SVD(mat, std::min(m, n));
+}
+
+namespace {
+
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
+Mat<T> pinv_diagonal(const MatrixBase<Derived, U, 2>& mat) {
+    Mat<T> M = mat;
+    std::size_t m = mat.dims(0);
+    std::size_t n = mat.dims(1);
+    std::size_t sz = std::min(m, n);
+    for (std::size_t i = 0; i < sz; ++i) {
+        if (M[{i, i}] != T{0}) {
+            M[{i, i}] = T{1} / M[{i, i}];
+        }
+    };
+    return transpose(M);
+}
+
+} // anonymous namespace
+
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
+Mat<T> pinv(const MatrixBase<Derived, U, 2>& mat) {
+    auto [U_, S_, V_] = SVD(mat);
+    auto conjif = [&](const auto& v) {
+        if constexpr (isComplex<U>) {
+            return conj(v);
+        } else {
+            return v;
+        }
+    };
+    return dot(dot(V_, pinv_diagonal(S_)), transpose(conjif(U_)));
 }
 
 template <isScalar T>
@@ -797,12 +835,11 @@ std::vector<T> eigenTwo(const MatrixBase<Derived, U, 2>& M) {
 }
 
 template <typename Derived, isScalar T>
-void addNotNullColumn(std::vector<std::pair<T, Vec<T>>>& vec,
-                      const T& eigenv, const MatrixBase<Derived, T, 2>& emat) {
+void addNotNullColumn(std::vector<std::pair<T, Vec<T>>>& vec, const T& eigenv, const MatrixBase<Derived, T, 2>& emat) {
     for (std::size_t i = 0; i < emat.dims(0); ++i) {
         if (norm(emat.col(i)) > tolerance_soft) {
             vec.emplace_back(eigenv, normalize(emat.col(i)));
-            return;
+        return;
         }
     }
 }
@@ -1064,7 +1101,7 @@ Mat<T> computeEigenvectors(const MatrixBase<Derived, T, 2>& M,
 template <typename Derived, typename Derived2,
         isScalar U, isScalar T = CmpTypeT<U>> requires CmpTypeTo<U, T>
 std::vector<std::pair<T, Vec<T>>> QRIterationWithVec(const MatrixBase<Derived, U, 2>& mat,
-                                  const MatrixBase<Derived2, U, 2>& V) {
+                                                     const MatrixBase<Derived2, U, 2>& V) {
     std::size_t iter = 0;
     std::size_t total_iter = 0;
     std::size_t n = mat.dims(0);
