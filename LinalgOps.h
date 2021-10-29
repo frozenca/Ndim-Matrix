@@ -624,7 +624,6 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
         Sigma_[{i, i}] = Sigma[{idx, idx}];
         std::swap_ranges(V_.col(i).begin(), V_.col(i).end(), V.col(idx).begin());
     }
-    std::cout << U_ << '\n';
     return {U_, Sigma_, V_};
 }
 
