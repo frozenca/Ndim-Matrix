@@ -21,7 +21,7 @@ C++20 N-dimensional Matrix class for hobby project
 - Norm
 - Vector normalization
 - Singular Value Decomposition (able to low rank approx SVD)
-- Matrix Inverse
+- Matrix Inverse, Pseudoinverse
 - Eigenvalues
 - Eigenvalues + Eigenvectors
 
