@@ -10,7 +10,6 @@ C++20 N-dimensional Matrix class for hobby project
 - add, sub, mul, div, modulus (supports broadcasting)
 - scalar assignment, addition, subtraction, multiplication, division, etc (operations defined provided that scalar types are compatible)
 - ```operator+=, -=, *=, /=, %=```, etc
-- elementwise operations are all parallelized using ```std::execution::par_unseq```
 
 # Supporting linear algebra operations
 - Inner product
@@ -32,7 +31,7 @@ C++20 N-dimensional Matrix class for hobby project
 - Einsum
 - Coordinatewise initialization
 - Sparse matrix
-- FFT, pinv
+- FFT
 - Matrix over discrete scalars (In particular, Z_p)
 - Array manipulations like concat, split, row/column rotate, zeropad, etc (tedious...)
 - Expand linear algebra stuffs to >2D (tedious...)
