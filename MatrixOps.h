@@ -87,9 +87,9 @@ namespace {
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires AddableTo<U, V, T> && (std::max(N1, N2) == N)
-void AddTo(MatrixView<T, N>& m,
-           const MatrixView<U, N1>& m1,
-           const MatrixView<V, N2>& m2) {
+void AddTo(MatrixView<T, N, false>& m,
+           const MatrixView<U, N1, true>& m1,
+           const MatrixView<V, N2, true>& m2) {
     if constexpr (N == 1) {
         m.applyFunctionWithBroadcast(m1, m2, PlusTo<U, V, T>);
     } else {
@@ -100,9 +100,9 @@ void AddTo(MatrixView<T, N>& m,
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires SubtractableTo<U, V, T> && (std::max(N1, N2) == N)
-void SubtractTo(MatrixView<T, N>& m,
-                const MatrixView<U, N1>& m1,
-                const MatrixView<V, N2>& m2) {
+void SubtractTo(MatrixView<T, N, false>& m,
+                const MatrixView<U, N1, true>& m1,
+                const MatrixView<V, N2, true>& m2) {
     if constexpr (N == 1) {
         m.applyFunctionWithBroadcast(m1, m2, MinusTo<U, V, T>);
     } else {
@@ -113,9 +113,9 @@ void SubtractTo(MatrixView<T, N>& m,
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires MultipliableTo<U, V, T> && (std::max(N1, N2) == N)
-void MultiplyTo(MatrixView<T, N>& m,
-                const MatrixView<U, N1>& m1,
-                const MatrixView<V, N2>& m2) {
+void MultiplyTo(MatrixView<T, N, false>& m,
+                const MatrixView<U, N1, true>& m1,
+                const MatrixView<V, N2, true>& m2) {
     if constexpr (N == 1) {
         m.applyFunctionWithBroadcast(m1, m2, MultipliesTo<U, V, T>);
     } else {
@@ -126,9 +126,9 @@ void MultiplyTo(MatrixView<T, N>& m,
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires DividableTo<U, V, T> && (std::max(N1, N2) == N)
-void DivideTo(MatrixView<T, N>& m,
-              const MatrixView<U, N1>& m1,
-              const MatrixView<V, N2>& m2) {
+void DivideTo(MatrixView<T, N, false>& m,
+              const MatrixView<U, N1, true>& m1,
+              const MatrixView<V, N2, true>& m2) {
     if constexpr (N == 1) {
         m.applyFunctionWithBroadcast(m1, m2, DividesTo<U, V, T>);
     } else {
@@ -139,9 +139,9 @@ void DivideTo(MatrixView<T, N>& m,
 template <std::semiregular U, std::semiregular V, std::semiregular T,
         std::size_t N1, std::size_t N2, std::size_t N>
 requires RemaindableTo<U, V, T> && (std::max(N1, N2) == N)
-void ModuloTo(MatrixView<T, N>& m,
-              const MatrixView<U, N1>& m1,
-              const MatrixView<V, N2>& m2) {
+void ModuloTo(MatrixView<T, N, false>& m,
+              const MatrixView<U, N1, true>& m1,
+              const MatrixView<V, N2, true>& m2) {
     if constexpr (N == 1) {
         m.applyFunctionWithBroadcast(m1, m2, ModulusTo<U, V, T>);
     } else {
@@ -159,7 +159,11 @@ decltype(auto) operator+ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyFunctionWithBroadcast(m1, m2, AddTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    if constexpr (N == 1) {
+        res.applyFunctionWithBroadcast(m1, m2, PlusTo<U, V, T>);
+    } else {
+        res.applyFunctionWithBroadcast(m1, m2, AddTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
     return res;
 }
 
@@ -171,7 +175,11 @@ decltype(auto) operator- (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyFunctionWithBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    if constexpr (N == 1) {
+        res.applyFunctionWithBroadcast(m1, m2, MinusTo<U, V, T>);
+    } else {
+        res.applyFunctionWithBroadcast(m1, m2, SubtractTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
     return res;
 }
 
@@ -183,7 +191,11 @@ decltype(auto) operator* (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyFunctionWithBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    if constexpr (N == 1) {
+        res.applyFunctionWithBroadcast(m1, m2, MultipliesTo<U, V, T>);
+    } else {
+        res.applyFunctionWithBroadcast(m1, m2, MultiplyTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
     return res;
 }
 
@@ -195,7 +207,11 @@ decltype(auto) operator/ (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyFunctionWithBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    if constexpr (N == 1) {
+        res.applyFunctionWithBroadcast(m1, m2, DividesTo<U, V, T>);
+    } else {
+        res.applyFunctionWithBroadcast(m1, m2, DivideTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
     return res;
 }
 
@@ -207,11 +223,13 @@ decltype(auto) operator% (const MatrixBase<Derived1, U, N1>& m1, const MatrixBas
     constexpr std::size_t N = std::max(N1, N2);
     auto dims = bidirBroadcastedDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
-    res.applyFunctionWithBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    if constexpr (N == 1) {
+        res.applyFunctionWithBroadcast(m1, m2, ModulusTo<U, V, T>);
+    } else {
+        res.applyFunctionWithBroadcast(m1, m2, ModuloTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
+    }
     return res;
 }
-
-
 
 } // namespace frozenca
 

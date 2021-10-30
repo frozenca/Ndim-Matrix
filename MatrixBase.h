@@ -161,7 +161,7 @@ public:
     template <typename DerivedOther1, typename DerivedOther2,
             std::semiregular U, std::semiregular V,
             std::size_t N1, std::size_t N2,
-            std::invocable<MatrixView<T, N - 1, false>&,
+            std::invocable<row_type&,
                     MatrixView<U, std::min(N1, N - 1), true>&,
                     MatrixView<V, std::min(N2, N - 1), true>&> F>
     requires (std::max(N1, N2) == N)
@@ -330,7 +330,7 @@ template <typename Derived, std::semiregular T, std::size_t N>
 template <typename DerivedOther1, typename DerivedOther2,
         std::semiregular U, std::semiregular V,
         std::size_t N1, std::size_t N2,
-        std::invocable<MatrixView<T, N - 1, false>&,
+        std::invocable<typename MatrixBase<Derived, T, N>::row_type&,
                 MatrixView<U, std::min(N1, N - 1), true>&,
                 MatrixView<V, std::min(N2, N - 1), true>&> F>
 requires (std::max(N1, N2) == N)

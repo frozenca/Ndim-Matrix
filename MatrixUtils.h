@@ -30,6 +30,12 @@ using Vec = Matrix<T, 1>;
 template <std::semiregular T, std::size_t N, bool Const = false>
 class MatrixView;
 
+template <std::semiregular T>
+using MatView = MatrixView<T, 2>;
+
+template <std::semiregular T>
+using VecView = MatrixView<T, 1>;
+
 template <typename Derived, std::semiregular T, std::size_t N>
 class MatrixBase;
 
@@ -42,8 +48,8 @@ constexpr bool NotMatrix = true;
 template <std::semiregular T, std::size_t N>
 constexpr bool NotMatrix<Matrix<T, N>> = false;
 
-template <std::semiregular T, std::size_t N>
-constexpr bool NotMatrix<MatrixView<T, N>> = false;
+template <std::semiregular T, std::size_t N, bool Const>
+constexpr bool NotMatrix<MatrixView<T, N, Const>> = false;
 
 template <typename Derived, std::semiregular T, std::size_t N>
 constexpr bool NotMatrix<MatrixBase<Derived, T, N>> = false;
