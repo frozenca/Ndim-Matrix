@@ -36,6 +36,9 @@ using MatView = MatrixView<T, 2>;
 template <std::semiregular T>
 using VecView = MatrixView<T, 1>;
 
+template <std::semiregular T>
+using ConstVecView = MatrixView<T, 1, true>;
+
 template <typename Derived, std::semiregular T, std::size_t N>
 class MatrixBase;
 

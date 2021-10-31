@@ -37,10 +37,11 @@ public:
     explicit MatrixView(const stride_type& dims, pointer data_view, const stride_type& orig_strides);
 
     template <typename DerivedOther>
-    MatrixView(const MatrixBase<DerivedOther, T, N>& other);
+    MatrixView(const MatrixBase <DerivedOther, T, N>& other);
 
-    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-    MatrixView& operator=(const MatrixBase<DerivedOther, U, N>& other) requires (!Const);
+    template <typename DerivedOther, std::semiregular U>
+    requires std::is_convertible_v<U, T>
+    MatrixView& operator=(const MatrixBase <DerivedOther, U, N>& other) requires (!Const);
 
     friend void swap(MatrixView& a, MatrixView& b) noexcept {
         swap(static_cast<Base&>(a), static_cast<Base&>(b));
@@ -65,7 +66,7 @@ public:
 
         MVIterator() = default;
 
-        MVIterator(MatViewType ptr, std::array<std::size_t, N> pos = {0}) : ptr_ {ptr}, pos_ {pos} {
+        MVIterator(MatViewType ptr, std::array<std::size_t, N> pos = {0}) : ptr_{ptr}, pos_{pos} {
             ValidateOffset();
         }
 
@@ -221,18 +222,29 @@ public:
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    iterator begin() { return iterator(this);}
+    iterator begin() { return iterator(this); }
+
     const_iterator begin() const { return const_iterator(this); }
+
     const_iterator cbegin() const { return const_iterator(this); }
-    iterator end() { return iterator(this, {dims(0), });}
-    const_iterator end() const { return const_iterator(this, {dims(0), });}
-    const_iterator cend() const { return const_iterator(this, {dims(0), });}
-    reverse_iterator rbegin() { return std::make_reverse_iterator(end());}
-    const_reverse_iterator rbegin() const { return std::make_reverse_iterator(cend());}
-    const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend());}
-    reverse_iterator rend() { return std::make_reverse_iterator(begin());}
-    const_reverse_iterator rend() const { return std::make_reverse_iterator(cbegin());}
-    const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin());}
+
+    iterator end() { return iterator(this, {dims(0),}); }
+
+    const_iterator end() const { return const_iterator(this, {dims(0),}); }
+
+    const_iterator cend() const { return const_iterator(this, {dims(0),}); }
+
+    reverse_iterator rbegin() { return std::make_reverse_iterator(end()); }
+
+    const_reverse_iterator rbegin() const { return std::make_reverse_iterator(cend()); }
+
+    const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend()); }
+
+    reverse_iterator rend() { return std::make_reverse_iterator(begin()); }
+
+    const_reverse_iterator rend() const { return std::make_reverse_iterator(cbegin()); }
+
+    const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin()); }
 
     [[nodiscard]] pointer dataView() const {
         return data_view_;
@@ -246,7 +258,6 @@ public:
         Base::Base::operator-();
         return *this;
     }
-
 };
 
 template <std::semiregular T, std::size_t N, bool Const>

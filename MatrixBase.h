@@ -169,14 +169,14 @@ public:
                                            const MatrixBase<DerivedOther2, V, N2>& m2,
                                            F&& f);
 
-    template <typename DerivedOther, std::semiregular U> requires Addable<T, U>
-    MatrixBase& operator+=(const MatrixBase<DerivedOther, U, N>& other) {
+    template <typename DerivedOther> requires Addable<T, typename DerivedOther::value_type>
+    MatrixBase& operator+=(const ObjectBase<DerivedOther>& other) {
         std::transform(begin(), end(), other.begin(), begin(), std::plus<>{});
         return *this;
     }
 
-    template <typename DerivedOther, std::semiregular U> requires Subtractable<T, U>
-    MatrixBase& operator-=(const MatrixBase<DerivedOther, U, N>& other) {
+    template <typename DerivedOther> requires Subtractable<T, typename DerivedOther::value_type>
+    MatrixBase& operator-=(const ObjectBase<DerivedOther>& other) {
         std::transform(begin(), end(), other.begin(), begin(), std::minus<>{});
         return *this;
     }
@@ -535,14 +535,14 @@ public:
                                            const MatrixBase<DerivedOther2, V, 1>& m2,
                                            F&& f);
 
-    template <typename DerivedOther, std::semiregular U> requires Addable<T, U>
-    MatrixBase& operator+=(const MatrixBase<DerivedOther, U, 1>& other) {
+    template <typename DerivedOther> requires Addable<T, typename DerivedOther::value_type>
+    MatrixBase& operator+=(const ObjectBase<DerivedOther>& other) {
         std::transform(begin(), end(), other.begin(), begin(), std::plus<>{});
         return *this;
     }
 
-    template <typename DerivedOther, std::semiregular U> requires Subtractable<T, U>
-    MatrixBase& operator-=(const MatrixBase<DerivedOther, U, 1>& other) {
+    template <typename DerivedOther> requires Subtractable<T, typename DerivedOther::value_type>
+    MatrixBase& operator-=(const ObjectBase<DerivedOther>& other) {
         std::transform(begin(), end(), other.begin(), begin(), std::minus<>{});
         return *this;
     }
