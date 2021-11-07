@@ -6,10 +6,10 @@
 
 namespace frozenca {
 
-template <std::semiregular T, std::size_t N, bool Const>
-class MatrixView final : public MatrixBase<MatrixView<T, N, Const>, T, N> {
+template <std::semiregular T, std::size_t N, bool Const, bool isRowMajor>
+class MatrixView final : public MatrixBase<MatrixView<T, N, Const, isRowMajor>, T, N, isRowMajor> {
 public:
-    using Base = MatrixBase<MatrixView<T, N, Const>, T, N>;
+    using Base = MatrixBase<MatrixView<T, N, Const, isRowMajor>, T, N, isRowMajor>;
     using Base::size;
     using Base::dims;
     using Base::strides;
@@ -37,11 +37,11 @@ public:
     explicit MatrixView(const stride_type& dims, pointer data_view, const stride_type& orig_strides);
 
     template <typename DerivedOther>
-    MatrixView(const MatrixBase <DerivedOther, T, N>& other);
+    MatrixView(const MatrixBase<DerivedOther, T, N, isRowMajor>& other);
 
     template <typename DerivedOther, std::semiregular U>
     requires std::is_convertible_v<U, T>
-    MatrixView& operator=(const MatrixBase <DerivedOther, U, N>& other) requires (!Const);
+    MatrixView& operator=(const MatrixBase <DerivedOther, U, N, isRowMajor>& other) requires (!Const);
 
     friend void swap(MatrixView& a, MatrixView& b) noexcept {
         swap(static_cast<Base&>(a), static_cast<Base&>(b));
@@ -86,12 +86,23 @@ public:
         }
 
         void Increment() {
-            for (std::size_t i = N - 1; i < N; --i) {
-                ++pos_[i];
-                if (pos_[i] != ptr_->dims(i) || i == 0) {
-                    break;
-                } else {
-                    pos_[i] = 0;
+            if constexpr (isRowMajor) {
+                for (std::size_t i = N - 1; i < N; --i) {
+                    ++pos_[i];
+                    if (pos_[i] != ptr_->dims(i) || i == 0) {
+                        break;
+                    } else {
+                        pos_[i] = 0;
+                    }
+                }
+            } else {
+                for (std::size_t i = 0; i < N; ++i) {
+                    ++pos_[i];
+                    if (pos_[i] != ptr_->dims(i) || i == N - 1) {
+                        break;
+                    } else {
+                        pos_[i] = 0;
+                    }
                 }
             }
             ValidateOffset();
@@ -103,26 +114,50 @@ public:
                 return;
             }
             auto carry = static_cast<std::size_t>(n);
-            for (std::size_t i = N - 1; i < N; --i) {
-                std::size_t curr_dim = ptr_->dims(i);
-                pos_[i] += carry;
-                if (pos_[i] < curr_dim || i == 0) {
-                    break;
-                } else {
-                    carry = pos_[i] / curr_dim;
-                    pos_[i] %= curr_dim;
+            if constexpr (isRowMajor) {
+                for (std::size_t i = N - 1; i < N; --i) {
+                    std::size_t curr_dim = ptr_->dims(i);
+                    pos_[i] += carry;
+                    if (pos_[i] < curr_dim || i == 0) {
+                        break;
+                    } else {
+                        carry = pos_[i] / curr_dim;
+                        pos_[i] %= curr_dim;
+                    }
+                }
+            } else {
+                for (std::size_t i = 0; i < N; ++i) {
+                    std::size_t curr_dim = ptr_->dims(i);
+                    pos_[i] += carry;
+                    if (pos_[i] < curr_dim || i == N - 1) {
+                        break;
+                    } else {
+                        carry = pos_[i] / curr_dim;
+                        pos_[i] %= curr_dim;
+                    }
                 }
             }
             ValidateOffset();
         }
 
         void Decrement() {
-            for (std::size_t i = N - 1; i < N; --i) {
-                --pos_[i];
-                if (pos_[i] != static_cast<std::size_t>(-1) || i == 0) {
-                    break;
-                } else {
-                    pos_[i] = ptr_->dims(i) - 1;
+            if constexpr (isRowMajor) {
+                for (std::size_t i = N - 1; i < N; --i) {
+                    --pos_[i];
+                    if (pos_[i] != static_cast<std::size_t>(-1) || i == 0) {
+                        break;
+                    } else {
+                        pos_[i] = ptr_->dims(i) - 1;
+                    }
+                }
+            } else {
+                for (std::size_t i = 0; i < N; ++i) {
+                    --pos_[i];
+                    if (pos_[i] != static_cast<std::size_t>(-1) || i == N - 1) {
+                        break;
+                    } else {
+                        pos_[i] = ptr_->dims(i) - 1;
+                    }
                 }
             }
             ValidateOffset();
@@ -134,14 +169,29 @@ public:
                 return;
             }
             auto carry = static_cast<std::size_t>(n);
-            for (std::size_t i = N - 1; i < N; --i) {
-                std::size_t curr_dim = ptr_->dims(i);
-                pos_[i] -= carry;
-                if (pos_[i] < curr_dim || i == 0) {
-                    break;
-                } else {
-                    carry = static_cast<std::size_t>(-quot(static_cast<long>(pos_[i]), static_cast<long>(curr_dim)));
-                    pos_[i] = mod(static_cast<long>(pos_[i]), static_cast<long>(curr_dim));
+            if constexpr (isRowMajor) {
+                for (std::size_t i = N - 1; i < N; --i) {
+                    std::size_t curr_dim = ptr_->dims(i);
+                    pos_[i] -= carry;
+                    if (pos_[i] < curr_dim || i == 0) {
+                        break;
+                    } else {
+                        carry = static_cast<std::size_t>(-quot(static_cast<long>(pos_[i]),
+                                                               static_cast<long>(curr_dim)));
+                        pos_[i] = mod(static_cast<long>(pos_[i]), static_cast<long>(curr_dim));
+                    }
+                }
+            } else {
+                for (std::size_t i = 0; i < N; ++i) {
+                    std::size_t curr_dim = ptr_->dims(i);
+                    pos_[i] -= carry;
+                    if (pos_[i] < curr_dim || i == N - 1) {
+                        break;
+                    } else {
+                        carry = static_cast<std::size_t>(-quot(static_cast<long>(pos_[i]),
+                                                               static_cast<long>(curr_dim)));
+                        pos_[i] = mod(static_cast<long>(pos_[i]), static_cast<long>(curr_dim));
+                    }
                 }
             }
             ValidateOffset();
@@ -222,17 +272,27 @@ public:
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
+    [[nodiscard]] std::array<std::size_t, N> getEndpos() const {
+        if constexpr (isRowMajor) {
+            return {dims(0),};
+        } else {
+            std::array<std::size_t, N> pos = {0};
+            pos[N - 1] = dims(N - 1);
+            return pos;
+        }
+    }
+
     iterator begin() { return iterator(this); }
 
     const_iterator begin() const { return const_iterator(this); }
 
     const_iterator cbegin() const { return const_iterator(this); }
 
-    iterator end() { return iterator(this, {dims(0),}); }
+    iterator end() { return iterator(this, getEndpos()); }
 
-    const_iterator end() const { return const_iterator(this, {dims(0),}); }
+    const_iterator end() const { return const_iterator(this, getEndpos()); }
 
-    const_iterator cend() const { return const_iterator(this, {dims(0),}); }
+    const_iterator cend() const { return const_iterator(this, getEndpos()); }
 
     reverse_iterator rbegin() { return std::make_reverse_iterator(end()); }
 
@@ -254,21 +314,17 @@ public:
         return orig_strides_;
     }
 
-    MatrixView& operator-() {
-        Base::Base::operator-();
-        return *this;
-    }
 };
 
-template <std::semiregular T, std::size_t N, bool Const>
-MatrixView<T, N, Const>::MatrixView(const stride_type& dims, pointer data_view, const stride_type& orig_strides)
+template <std::semiregular T, std::size_t N, bool Const, bool isRowMajor>
+MatrixView<T, N, Const, isRowMajor>::MatrixView(const stride_type& dims, pointer data_view, const stride_type& orig_strides)
     : Base(dims), data_view_ {data_view}, orig_strides_ {orig_strides} {}
 
-template <std::semiregular T, std::size_t N, bool Const>
+template <std::semiregular T, std::size_t N, bool Const, bool isRowMajor>
 template <typename DerivedOther>
-MatrixView<T, N, Const>::MatrixView(const MatrixBase<DerivedOther, T, N>& other) : Base(other) {
-    if constexpr (std::is_same_v<DerivedOther, MatrixView<T, N, true>> ||
-    std::is_same_v<DerivedOther, MatrixView<T, N, false>>) {
+MatrixView<T, N, Const, isRowMajor>::MatrixView(const MatrixBase<DerivedOther, T, N, isRowMajor>& other) : Base(other) {
+    if constexpr (std::is_same_v<DerivedOther, MatrixView<T, N, true, isRowMajor>> ||
+    std::is_same_v<DerivedOther, MatrixView<T, N, false, isRowMajor>>) {
         data_view_ = const_cast<T*>(other.dataView());
         orig_strides_ = other.origStrides();
     } else {
@@ -277,9 +333,10 @@ MatrixView<T, N, Const>::MatrixView(const MatrixBase<DerivedOther, T, N>& other)
     }
 }
 
-template <std::semiregular T, std::size_t N, bool Const>
+template <std::semiregular T, std::size_t N, bool Const, bool isRowMajor>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-MatrixView<T, N, Const>& MatrixView<T, N, Const>::operator=(const MatrixBase<DerivedOther, U, N>& other) requires (!Const) {
+MatrixView<T, N, Const, isRowMajor>&
+        MatrixView<T, N, Const, isRowMajor>::operator=(const MatrixBase<DerivedOther, U, N, isRowMajor>& other) requires (!Const) {
     std::size_t len1 = end() - begin();
     std::size_t len2 = std::distance(std::begin(other), std::end(other));
     std::copy(std::begin(other), std::begin(other) + std::min(len1, len2), begin());

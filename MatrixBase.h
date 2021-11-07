@@ -1,18 +1,17 @@
 #ifndef FROZENCA_MATRIXBASE_H
 #define FROZENCA_MATRIXBASE_H
 
-#include <execution>
 #include <numeric>
 #include "ObjectBase.h"
 #include "MatrixInitializer.h"
 
 namespace frozenca {
 
-template <std::semiregular T, std::size_t N, bool Const>
+template <std::semiregular T, std::size_t N, bool Const, bool isRowMajor>
 class MatrixView;
 
-template <typename Derived, std::semiregular T, std::size_t N>
-class MatrixBase : public ObjectBase<MatrixBase<Derived, T, N>> {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+class MatrixBase : public ObjectBase<MatrixBase<Derived, T, N, isRowMajor>> {
     static_assert(N > 1);
 public:
     static constexpr std::size_t ndim = N;
@@ -21,10 +20,10 @@ public:
     using reference = T&;
     using const_reference = const T&;
     using pointer = T*;
-    using view_type = MatrixView<T, N, false>;
-    using const_view_type = MatrixView<T, N, true>;
-    using row_type = MatrixView<T, N - 1, false>;
-    using const_row_type = MatrixView<T, N - 1, true>;
+    using view_type = MatrixView<T, N, false, isRowMajor>;
+    using const_view_type = MatrixView<T, N, true, isRowMajor>;
+    using row_type = MatrixView<T, N - 1, false, (N == 2) || isRowMajor>;
+    using const_row_type = MatrixView<T, N - 1, true, (N == 2) ||isRowMajor>;
 
 private:
     extent_type dims_;
@@ -32,7 +31,7 @@ private:
     extent_type strides_;
 
 public:
-    using Base = ObjectBase<MatrixBase<Derived, T, N>>;
+    using Base = ObjectBase<MatrixBase<Derived, T, N, isRowMajor>>;
     using Base::applyFunction;
     using Base::operator=;
     using Base::operator+=;
@@ -59,8 +58,8 @@ protected:
     MatrixBase (MatrixBase&&) noexcept = default;
     MatrixBase& operator= (MatrixBase&&) noexcept = default;
 
-    template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-    MatrixBase(const MatrixBase<DerivedOther, U, N>&);
+    template <typename DerivedOther, std::semiregular U, bool isRowMajorOther> requires std::is_convertible_v<U, T>
+    MatrixBase(const MatrixBase<DerivedOther, U, N, isRowMajorOther>&);
 
     MatrixBase(typename MatrixInitializer<T, N>::type init);
 
@@ -162,11 +161,11 @@ public:
             std::semiregular U, std::semiregular V,
             std::size_t N1, std::size_t N2,
             std::invocable<row_type&,
-                    MatrixView<U, std::min(N1, N - 1), true>&,
-                    MatrixView<V, std::min(N2, N - 1), true>&> F>
+                    typename MatrixBase<DerivedOther1, U, N1, isRowMajor>::row_type&,
+                    typename MatrixBase<DerivedOther2, V, N2, isRowMajor>::row_type&> F>
     requires (std::max(N1, N2) == N)
-    MatrixBase& applyFunctionWithBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
-                                           const MatrixBase<DerivedOther2, V, N2>& m2,
+    MatrixBase& applyFunctionWithBroadcast(const MatrixBase<DerivedOther1, U, N1, isRowMajor>& m1,
+                                           const MatrixBase<DerivedOther2, V, N2, isRowMajor>& m2,
                                            F&& f);
 
     template <typename DerivedOther> requires Addable<T, typename DerivedOther::value_type>
@@ -199,59 +198,61 @@ public:
 
 };
 
-template <typename Derived, std::semiregular T, std::size_t N>
-MatrixBase<Derived, T, N>::MatrixBase(const extent_type& dims) : dims_ {dims} {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+MatrixBase<Derived, T, N, isRowMajor>::MatrixBase(const extent_type& dims) : dims_ {dims} {
     if (std::ranges::find(dims_, 0lu) != std::end(dims_)) {
         throw std::invalid_argument("Zero dimension not allowed");
     }
     size_ = std::accumulate(std::begin(dims_), std::end(dims_), 1lu, std::multiplies<>{});
-    strides_ = computeStrides(dims_);
+    strides_ = computeStrides<N, isRowMajor>(dims_);
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
 template <std::size_t M> requires (M < N)
-MatrixBase<Derived, T, N>::MatrixBase(const std::array<std::size_t, M>& dims) : MatrixBase (prepend<N, M>(dims)) {}
+MatrixBase<Derived, T, N, isRowMajor>::MatrixBase(const std::array<std::size_t, M>& dims) : MatrixBase (prepend<N, M>(dims)) {}
 
-template <typename Derived, std::semiregular T, std::size_t N>
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
 template <IndexType... Dims>
-MatrixBase<Derived, T, N>::MatrixBase(Dims... dims) : dims_{static_cast<std::size_t>(dims)...} {
+MatrixBase<Derived, T, N, isRowMajor>::MatrixBase(Dims... dims) : dims_{static_cast<std::size_t>(dims)...} {
     static_assert(sizeof...(Dims) == N);
     static_assert((std::is_integral_v<Dims> && ...));
     if (std::ranges::find(dims_, 0lu) != std::end(dims_)) {
         throw std::invalid_argument("Zero dimension not allowed");
     }
     size_ = std::accumulate(std::begin(dims_), std::end(dims_), 1lu, std::multiplies<>{});
-    strides_ = computeStrides(dims_);
+    strides_ = computeStrides<N, isRowMajor>(dims_);
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
-template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-MatrixBase<Derived, T, N>::MatrixBase(const MatrixBase<DerivedOther, U, N>& other) : MatrixBase(other.dims()) {}
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+template <typename DerivedOther, std::semiregular U, bool isRowMajorOther> requires std::is_convertible_v<U, T>
+MatrixBase<Derived, T, N, isRowMajor>::MatrixBase(const MatrixBase<DerivedOther, U, N, isRowMajorOther>& other)
+: MatrixBase(other.dims()) {}
 
-template <typename Derived, std::semiregular T, std::size_t N>
-MatrixBase<Derived, T, N>::MatrixBase(typename MatrixInitializer<T, N>::type init) :
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+MatrixBase<Derived, T, N, isRowMajor>::MatrixBase(typename MatrixInitializer<T, N>::type init) :
 MatrixBase(deriveDims<N>(init)) {}
 
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::view_type MatrixBase<Derived, T, N>::submatrix(const extent_type& pos_begin) {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+typename MatrixBase<Derived, T, N, isRowMajor>::view_type
+        MatrixBase<Derived, T, N, isRowMajor>::submatrix(const extent_type& pos_begin) {
     return submatrix(pos_begin, dims_);
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::const_view_type
-        MatrixBase<Derived, T, N>::submatrix(const extent_type& pos_begin) const {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+typename MatrixBase<Derived, T, N, isRowMajor>::const_view_type
+        MatrixBase<Derived, T, N, isRowMajor>::submatrix(const extent_type& pos_begin) const {
     return submatrix(pos_begin, dims_);
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::view_type
-        MatrixBase<Derived, T, N>::submatrix(const extent_type& pos_begin, const extent_type& pos_end) {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+typename MatrixBase<Derived, T, N, isRowMajor>::view_type
+        MatrixBase<Derived, T, N, isRowMajor>::submatrix(const extent_type& pos_begin, const extent_type& pos_end) {
     return std::as_const(*this).submatrix(pos_begin, pos_end);
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::const_view_type
-        MatrixBase<Derived, T, N>::submatrix(const extent_type& pos_begin,
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+typename MatrixBase<Derived, T, N, isRowMajor>::const_view_type
+        MatrixBase<Derived, T, N, isRowMajor>::submatrix(const extent_type& pos_begin,
                                              const extent_type& pos_end) const {
     if (!std::equal(std::cbegin(pos_begin), std::cend(pos_begin), std::cbegin(pos_end), std::less<>{})) {
         throw std::out_of_range("submatrix begin/end position error");
@@ -269,13 +270,13 @@ typename MatrixBase<Derived, T, N>::const_view_type
     return view;
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::row_type MatrixBase<Derived, T, N>::row(std::size_t n) {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+typename MatrixBase<Derived, T, N, isRowMajor>::row_type MatrixBase<Derived, T, N, isRowMajor>::row(std::size_t n) {
     return std::as_const(*this).row(n);
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::const_row_type MatrixBase<Derived, T, N>::row(std::size_t n) const {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+typename MatrixBase<Derived, T, N, isRowMajor>::const_row_type MatrixBase<Derived, T, N, isRowMajor>::row(std::size_t n) const {
     const auto& orig_dims = dims();
     if (n >= orig_dims[0]) {
         throw std::out_of_range("row index error");
@@ -297,13 +298,13 @@ typename MatrixBase<Derived, T, N>::const_row_type MatrixBase<Derived, T, N>::ro
     return nth_row;
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::row_type MatrixBase<Derived, T, N>::col(std::size_t n) {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+typename MatrixBase<Derived, T, N, isRowMajor>::row_type MatrixBase<Derived, T, N, isRowMajor>::col(std::size_t n) {
     return std::as_const(*this).col(n);
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
-typename MatrixBase<Derived, T, N>::const_row_type MatrixBase<Derived, T, N>::col(std::size_t n) const {
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+typename MatrixBase<Derived, T, N, isRowMajor>::const_row_type MatrixBase<Derived, T, N, isRowMajor>::col(std::size_t n) const {
     const auto& orig_dims = dims();
     if (n >= orig_dims[N - 1]) {
         throw std::out_of_range("col index error");
@@ -326,71 +327,122 @@ typename MatrixBase<Derived, T, N>::const_row_type MatrixBase<Derived, T, N>::co
     return nth_col;
 }
 
-template <typename Derived, std::semiregular T, std::size_t N>
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
 template <typename DerivedOther1, typename DerivedOther2,
         std::semiregular U, std::semiregular V,
         std::size_t N1, std::size_t N2,
-        std::invocable<typename MatrixBase<Derived, T, N>::row_type&,
-                MatrixView<U, std::min(N1, N - 1), true>&,
-                MatrixView<V, std::min(N2, N - 1), true>&> F>
+        std::invocable<typename MatrixBase<Derived, T, N, isRowMajor>::row_type&,
+                typename MatrixBase<DerivedOther1, U, N1, isRowMajor>::row_type&,
+                typename MatrixBase<DerivedOther2, V, N2, isRowMajor>::row_type&> F>
 requires (std::max(N1, N2) == N)
-MatrixBase<Derived, T, N>&
-        MatrixBase<Derived, T, N>::applyFunctionWithBroadcast(const MatrixBase<DerivedOther1, U, N1>& m1,
-                                                              const MatrixBase<DerivedOther2, V, N2>& m2,
-                                                              F&& f) {
-    if constexpr (N1 == N) {
-        if constexpr (N2 == N) {
-            auto r = dims(0);
-            auto r1 = m1.dims(0);
-            auto r2 = m2.dims(0);
-            if (r1 == r) {
-                if (r2 == r) {
+MatrixBase<Derived, T, N, isRowMajor>&
+        MatrixBase<Derived, T, N, isRowMajor>::applyFunctionWithBroadcast(const MatrixBase<DerivedOther1, U, N1, isRowMajor>& m1,
+                                                                          const MatrixBase<DerivedOther2, V, N2, isRowMajor>& m2,
+                                                                          F&& f) {
+    if constexpr (isRowMajor) {
+        if constexpr (N1 == N) {
+            if constexpr (N2 == N) {
+                auto r = dims(0);
+                auto r1 = m1.dims(0);
+                auto r2 = m2.dims(0);
+                if (r1 == r) {
+                    if (r2 == r) {
+                        for (std::size_t i = 0; i < r; ++i) {
+                            auto row = this->row(i);
+                            f(row, m1.row(i), m2.row(i));
+                        }
+                    } else { // r2 < r == r1
+                        auto row2 = m2.row(0);
+                        for (std::size_t i = 0; i < r; ++i) {
+                            auto row = this->row(i);
+                            f(row, m1.row(i), row2);
+                        }
+                    }
+                } else if (r2 == r) { // r1 < r == r2
+                    auto row1 = m1.row(0);
                     for (std::size_t i = 0; i < r; ++i) {
                         auto row = this->row(i);
-                        f(row, m1.row(i), m2.row(i));
+                        f(row, row1, m2.row(i));
                     }
-                } else { // r2 < r == r1
-                    auto row2 = m2.row(0);
-                    for (std::size_t i = 0; i < r; ++i) {
-                        auto row = this->row(i);
-                        f(row, m1.row(i), row2);
-                    }
+                } else {
+                    assert(0); // cannot happen
                 }
-            } else if (r2 == r) { // r1 < r == r2
-                auto row1 = m1.row(0);
+            } else { // N2 < N == N1
+                auto r = dims(0);
+                assert(r == m1.dims(0));
+                MatrixView<V, N2, true, isRowMajor> view2(m2);
                 for (std::size_t i = 0; i < r; ++i) {
                     auto row = this->row(i);
-                    f(row, row1, m2.row(i));
+                    f(row, m1.row(i), view2);
                 }
-            } else {
-                assert(0); // cannot happen
             }
-        } else { // N2 < N == N1
+        } else if constexpr (N2 == N) { // N1 < N == N2
             auto r = dims(0);
-            assert(r == m1.dims(0));
-            MatrixView<V, N2, true> view2 (m2);
+            assert(r == m2.dims(0));
+            MatrixView<U, N1, true, isRowMajor> view1(m1);
             for (std::size_t i = 0; i < r; ++i) {
                 auto row = this->row(i);
-                f(row, m1.row(i), view2);
+                f(row, view1, m2.row(i));
             }
-        }
-    } else if constexpr (N2 == N) { // N1 < N == N2
-        auto r = dims(0);
-        assert(r == m2.dims(0));
-        MatrixView<U, N1, true> view1 (m1);
-        for (std::size_t i = 0; i < r; ++i) {
-            auto row = this->row(i);
-            f(row, view1, m2.row(i));
+        } else {
+            assert(0); // cannot happen
         }
     } else {
-        assert(0); // cannot happen
+        if constexpr (N1 == N) {
+            if constexpr (N2 == N) {
+                auto c = dims(N - 1);
+                auto c1 = m1.dims(N - 1);
+                auto c2 = m2.dims(N - 1);
+                if (c1 == c) {
+                    if (c2 == c) {
+                        for (std::size_t i = 0; i < c; ++i) {
+                            auto col = this->col(i);
+                            f(col, m1.col(i), m2.col(i));
+                        }
+                    } else { // c2 < c == c1
+                        auto col2 = m2.col(c2 - 1);
+                        for (std::size_t i = 0; i < c; ++i) {
+                            auto col = this->col(i);
+                            f(col, m1.col(i), col2);
+                        }
+                    }
+                } else if (c2 == c) { // r1 < r == r2
+                    auto col1 = m1.col(c1 - 1);
+                    for (std::size_t i = 0; i < c; ++i) {
+                        auto col = this->col(i);
+                        f(col, col1, m2.col(i));
+                    }
+                } else {
+                    assert(0); // cannot happen
+                }
+            } else { // N2 < N == N1
+                auto c = dims(N - 1);
+                assert(c == m1.dims(N1 - 1));
+                MatrixView<V, N2, true, isRowMajor> view2(m2);
+                for (std::size_t i = 0; i < c; ++i) {
+                    auto col = this->col(i);
+                    f(col, m1.col(i), view2);
+                }
+            }
+        } else if constexpr (N2 == N) { // N1 < N == N2
+            auto c = dims(N - 1);
+            assert(c == m2.dims(N2 - 1));
+            MatrixView<U, N1, true, isRowMajor> view1(m1);
+            for (std::size_t i = 0; i < c; ++i) {
+                auto col = this->col(i);
+                f(col, view1, m2.col(i));
+            }
+        } else {
+            assert(0); // cannot happen
+        }
     }
     return *this;
 }
 
-template <typename Derived, std::semiregular T>
-class MatrixBase<Derived, T, 1> : public ObjectBase<MatrixBase<Derived, T, 1>> {
+template <typename Derived, std::semiregular T, bool isRowMajor>
+class MatrixBase<Derived, T, 1, isRowMajor> : public ObjectBase<MatrixBase<Derived, T, 1, isRowMajor>> {
 public:
+    static_assert(isRowMajor);
     static constexpr std::size_t ndim = 1;
     using extent_type = std::array<std::size_t, 1>;
     using value_type = T;
@@ -419,7 +471,6 @@ public:
     using Base::operator*=;
     using Base::operator/=;
     using Base::operator%=;
-    using Base::operator-;
 
 protected:
     ~MatrixBase() noexcept = default;
@@ -562,32 +613,33 @@ public:
 
 };
 
-template <typename Derived, std::semiregular T>
+template <typename Derived, std::semiregular T, bool isRowMajor>
 template <typename DerivedOther, std::semiregular U> requires std::is_convertible_v<U, T>
-MatrixBase<Derived, T, 1>::MatrixBase(const MatrixBase<DerivedOther, U, 1>& other) : MatrixBase(other.dims(0)) {}
+MatrixBase<Derived, T, 1, isRowMajor>::MatrixBase(const MatrixBase<DerivedOther, U, 1>& other) : MatrixBase(other.dims(0)) {}
 
-template <typename Derived, std::semiregular T>
-MatrixBase<Derived, T, 1>::MatrixBase(typename MatrixInitializer<T, 1>::type init)
+template <typename Derived, std::semiregular T, bool isRowMajor>
+MatrixBase<Derived, T, 1, isRowMajor>::MatrixBase(typename MatrixInitializer<T, 1>::type init)
 : MatrixBase(deriveDims<1>(init)[0]) {}
 
-template <typename Derived, std::semiregular T>
-typename MatrixBase<Derived, T, 1>::view_type MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin) {
+template <typename Derived, std::semiregular T, bool isRowMajor>
+typename MatrixBase<Derived, T, 1, isRowMajor>::view_type MatrixBase<Derived, T, 1, isRowMajor>::submatrix(std::size_t pos_begin) {
     return submatrix(pos_begin, dims_[0]);
 }
 
-template <typename Derived, std::semiregular T>
-typename MatrixBase<Derived, T, 1>::const_view_type MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin) const {
+template <typename Derived, std::semiregular T, bool isRowMajor>
+typename MatrixBase<Derived, T, 1, isRowMajor>::const_view_type
+        MatrixBase<Derived, T, 1, isRowMajor>::submatrix(std::size_t pos_begin) const {
     return submatrix(pos_begin, dims_[0]);
 }
 
-template <typename Derived, std::semiregular T>
-typename MatrixBase<Derived, T, 1>::view_type MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin,
+template <typename Derived, std::semiregular T, bool isRowMajor>
+typename MatrixBase<Derived, T, 1, isRowMajor>::view_type MatrixBase<Derived, T, 1, isRowMajor>::submatrix(std::size_t pos_begin,
                                         std::size_t pos_end) {
     return std::as_const(*this).submatrix(pos_begin, pos_end);
 }
 
-template <typename Derived, std::semiregular T>
-typename MatrixBase<Derived, T, 1>::const_view_type MatrixBase<Derived, T, 1>::submatrix(std::size_t pos_begin,
+template <typename Derived, std::semiregular T, bool isRowMajor>
+typename MatrixBase<Derived, T, 1, isRowMajor>::const_view_type MatrixBase<Derived, T, 1, isRowMajor>::submatrix(std::size_t pos_begin,
                                               std::size_t pos_end) const {
     if (pos_begin >= pos_end) {
         throw std::out_of_range("submatrix begin/end position error");
@@ -603,34 +655,34 @@ typename MatrixBase<Derived, T, 1>::const_view_type MatrixBase<Derived, T, 1>::s
     return view;
 }
 
-template <typename Derived, std::semiregular T>
-typename MatrixBase<Derived, T, 1>::row_type MatrixBase<Derived, T, 1>::row(std::size_t n) {
+template <typename Derived, std::semiregular T, bool isRowMajor>
+typename MatrixBase<Derived, T, 1, isRowMajor>::row_type MatrixBase<Derived, T, 1, isRowMajor>::row(std::size_t n) {
     return const_cast<T&>(std::as_const(*this).row(n));
 }
 
-template <typename Derived, std::semiregular T>
-typename MatrixBase<Derived, T, 1>::const_row_type MatrixBase<Derived, T, 1>::row(std::size_t n) const {
+template <typename Derived, std::semiregular T, bool isRowMajor>
+typename MatrixBase<Derived, T, 1, isRowMajor>::const_row_type MatrixBase<Derived, T, 1, isRowMajor>::row(std::size_t n) const {
     if (n >= dims_[0]) {
         throw std::out_of_range("row index error");
     }
     return operator[](n);
 }
 
-template <typename Derived, std::semiregular T>
-typename MatrixBase<Derived, T, 1>::row_type MatrixBase<Derived, T, 1>::col(std::size_t n) {
+template <typename Derived, std::semiregular T, bool isRowMajor>
+typename MatrixBase<Derived, T, 1, isRowMajor>::row_type MatrixBase<Derived, T, 1, isRowMajor>::col(std::size_t n) {
     return row(n);
 }
 
-template <typename Derived, std::semiregular T>
-typename MatrixBase<Derived, T, 1>::const_row_type MatrixBase<Derived, T, 1>::col(std::size_t n) const {
+template <typename Derived, std::semiregular T, bool isRowMajor>
+typename MatrixBase<Derived, T, 1, isRowMajor>::const_row_type MatrixBase<Derived, T, 1, isRowMajor>::col(std::size_t n) const {
     return row(n);
 }
 
-template <typename Derived, std::semiregular T>
+template <typename Derived, std::semiregular T, bool isRowMajor>
 template <typename DerivedOther1, typename DerivedOther2,
         std::semiregular U, std::semiregular V,
         std::invocable<T&, const U&, const V&> F>
-MatrixBase<Derived, T, 1>& MatrixBase<Derived, T, 1>::applyFunctionWithBroadcast(
+MatrixBase<Derived, T, 1, isRowMajor>& MatrixBase<Derived, T, 1, isRowMajor>::applyFunctionWithBroadcast(
         const MatrixBase<DerivedOther1, U, 1>& m1,
         const MatrixBase<DerivedOther2, V, 1>& m2,
         F&& f) {

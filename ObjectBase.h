@@ -99,10 +99,6 @@ public:
         return applyFunction([&val](auto& v) {v >>= val;});
     }
 
-    ObjectBase& operator-() requires isScalar<typename Derived::value_type> {
-        return applyFunction([](auto& v) {v = -v;});
-    }
-
     ObjectBase& conj() requires isScalar<typename Derived::value_type> {
         return applyFunction([](auto& v) {v = std::conj(v);});
     }
@@ -161,6 +157,13 @@ template <typename Derived, isNotMatrix U> requires Multipliable<typename Derive
 ObjectBase<Derived> operator*(const ObjectBase<Derived>& m, const U& val) {
     ObjectBase<Derived> res = m;
     res *= val;
+    return res;
+}
+
+template <typename Derived> requires isScalar<typename Derived::value_type>
+ObjectBase<Derived> operator-(const ObjectBase<Derived>& m) {
+    ObjectBase<Derived> res = m;
+    res *= -1;
     return res;
 }
 

@@ -11,10 +11,10 @@ namespace frozenca {
 
 namespace {
 
-constexpr float tolerance_soft = 1e-6;
-constexpr float tolerance_hard = 1e-10;
-constexpr std::size_t max_iter = 100;
-constexpr std::size_t local_iter = 15;
+static constexpr float tolerance_soft = 1e-6;
+static constexpr float tolerance_hard = 1e-10;
+static constexpr std::size_t max_iter = 100;
+static constexpr std::size_t local_iter = 15;
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
@@ -24,11 +24,14 @@ void DotTo(T& m,
     m += std::inner_product(std::begin(m1), std::end(m1), std::begin(m2), T{0});
 }
 
-template <std::semiregular U, std::semiregular V, std::semiregular T>
+template <std::semiregular U, std::semiregular V, std::semiregular T, bool isRowMajor2>
 requires DotProductableTo<U, V, T>
 void DotTo(MatrixView<T, 1, false>& m,
            const MatrixView<U, 1, true>& m1,
-           const MatrixView<V, 2, true>& m2) {
+           const MatrixView<V, 2, true, isRowMajor2>& m2) {
+    if (m.dims(0) != m2.dims(1)) {
+        std::cout << m.dims(0) << ' ' << m2.dims(0) << ' ' << m2.dims(1) << '\n';
+    }
     assert(m.dims(0) == m2.dims(1));
     std::size_t c = m.dims(0);
     for (std::size_t j = 0; j < c; ++j) {
@@ -50,7 +53,8 @@ void DotTo(MatrixView<T, 1, false>& m,
     }
 }
 
-template <std::semiregular U, std::semiregular V, std::semiregular T, std::size_t N2>
+template <std::semiregular U, std::semiregular V, std::semiregular T,
+        std::size_t N2>
 requires DotProductableTo<U, V, T> && (N2 > 2)
 void DotTo(MatrixView<T, N2 - 1, false>& m,
            const MatrixView<U, 1, true>& m1,
@@ -65,8 +69,8 @@ void DotTo(MatrixView<T, N2 - 1, false>& m,
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T,
-        std::size_t N1, std::size_t N2>
-requires DotProductableTo<U, V, T> && (N1 > 1)
+        std::size_t N1>
+requires DotProductableTo<U, V, T> && (N1 > 2)
 void DotTo(MatrixView<T, N1 - 1, false>& m,
            const MatrixView<U, N1, true>& m1,
            const MatrixView<V, 1, true>& m2) {
@@ -80,11 +84,11 @@ void DotTo(MatrixView<T, N1 - 1, false>& m,
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T,
-        std::size_t N1, std::size_t N2>
+        std::size_t N1, std::size_t N2, bool isRowMajor2>
 requires DotProductableTo<U, V, T> && (N1 + N2 > 2)
 void DotTo(MatrixView<T, N1 + N2 - 2, false>& m,
            const MatrixView<U, N1, true>& m1,
-           const MatrixView<V, N2, true>& m2) {
+           const MatrixView<V, N2, true, isRowMajor2>& m2) {
     assert(m.dims(0) == m1.dims(0));
     std::size_t r = m.dims(0);
     for (std::size_t i = 0; i < r; ++i) {
@@ -96,14 +100,14 @@ void DotTo(MatrixView<T, N1 + N2 - 2, false>& m,
 
 template <typename Derived0, typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V, std::semiregular T,
-        std::size_t N1, std::size_t N2>
+        std::size_t N1, std::size_t N2, bool isRowMajor2>
 requires DotProductableTo<U, V, T> && (N1 + N2 > 2)
 void DotTo(MatrixBase<Derived0, T, (N1 + N2 - 2)>& m,
            const MatrixBase<Derived1, U, N1>& m1,
-           const MatrixBase<Derived2, V, N2>& m2) {
+           const MatrixBase<Derived2, V, N2, isRowMajor2>& m2) {
     MatrixView<T, (N1 + N2 - 2), false> m_view (m);
     MatrixView<U, N1, true> m1_view (m1);
-    MatrixView<V, N2, true> m2_view (m2);
+    MatrixView<V, N2, true, isRowMajor2> m2_view (m2);
     DotTo(m_view, m1_view, m2_view);
 }
 
@@ -119,14 +123,15 @@ void DotTo(T& m,
 }
 
 template <std::semiregular U, std::semiregular V, std::semiregular T,
-        std::size_t N1, std::size_t N2, std::size_t N>
+        std::size_t N1, std::size_t N2, std::size_t N, bool isRowMajor2>
 requires DotProductableTo<U, V, T> && (std::max(N1, N2) == N)
 void MatmulTo(MatrixView<T, N, false>& m,
               const MatrixView<U, N1, true>& m1,
-              const MatrixView<V, N2, true>& m2) {
+              const MatrixView<V, N2, true, isRowMajor2>& m2) {
     if constexpr (N == 2) {
         DotTo(m, m1, m2);
     } else {
+        static_assert(isRowMajor2);
         m.applyFunctionWithBroadcast(m1, m2, MatmulTo<U, V, T, std::min(N1, N - 1), std::min(N2, N - 1), N - 1>);
     }
 }
@@ -147,9 +152,9 @@ decltype(auto) dot(const MatrixBase<Derived1, U, 1>& m1, const MatrixBase<Derive
 
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
-        std::size_t M, std::size_t N,
+        std::size_t M, std::size_t N, bool isRowMajor2,
         std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
-decltype(auto) dot(const MatrixBase<Derived1, U, M>& m1, const MatrixBase<Derived2, V, N>& m2) {
+decltype(auto) dot(const MatrixBase<Derived1, U, M, true>& m1, const MatrixBase<Derived2, V, N, isRowMajor2>& m2) {
     auto dims = dotDims(m1.dims(), m2.dims());
     Matrix<T, (M + N - 2)> res = zeros<T, (M + N - 2)>(dims);
     DotTo(res, m1, m2);
@@ -173,7 +178,7 @@ decltype(auto) dot(const MatrixBase<Derived1, U, 2>& m1, const MatrixBase<Derive
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
         std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
-decltype(auto) dot(const MatrixBase<Derived2, V, 1>& m1, const MatrixBase<Derived1, U, 2>& m2) {
+decltype(auto) dot(const MatrixBase<Derived2, V, 1>& m1, const MatrixBase<Derived1, U, 2, false>& m2) {
     if (m1.dims(0) != m2.dims(0)) {
         throw std::invalid_argument("Cannot do dot product, shape is not aligned");
     }
@@ -200,29 +205,30 @@ decltype(auto) outer(const MatrixBase<Derived2, V, 1>& m1, const MatrixBase<Deri
 
 template <typename Derived1, typename Derived2,
         std::semiregular U, std::semiregular V,
-        std::size_t N1, std::size_t N2,
+        std::size_t N1, std::size_t N2, bool isRowMajor1, bool isRowMajor2,
         std::semiregular T = MulType<U, V>> requires DotProductableTo<U, V, T>
-decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<Derived2, V, N2>& m2) {
+decltype(auto) matmul(const MatrixBase<Derived1, U, N1, isRowMajor1>& m1, const MatrixBase<Derived2, V, N2, isRowMajor2>& m2) {
     constexpr std::size_t N = std::max({N1, N2, 2lu});
     auto dims = matmulDims(m1.dims(), m2.dims());
     Matrix<T, N> res = zeros<T, N>(dims);
     auto m1_view = [&](){
         if constexpr (N1 == 1) {
-            return MatrixView<U, 2, true>({1, m1.dims(0)}, m1.dataView(), {m1.dims(0), 1});
+            return MatrixView<U, 2, true, true>({1, m1.dims(0)}, m1.dataView(), {m1.dims(0), 1});
         } else {
-            return MatrixView<U, N1, true>(m1);
+            return MatrixView<U, N1, true, isRowMajor1>(m1);
         }
     };
     auto m2_view = [&](){
         if constexpr (N2 == 1) {
-            return MatrixView<V, 2, true>({m2.dims(0), 1}, m2.dataView(), {1, 1});
+            return MatrixView<V, 2, true, false>({m2.dims(0), 1}, m2.dataView(), {1, 1});
         } else {
-            return MatrixView<V, N2, true>(m2);
+            return MatrixView<V, N2, true, isRowMajor2>(m2);
         }
     };
     if constexpr (N == 2) {
         DotTo(res, m1_view(), m2_view());
     } else {
+        static_assert(isRowMajor1 && isRowMajor2);
         res.applyFunctionWithBroadcast(m1_view(), m2_view(), MatmulTo<U, V, T,
                 std::min(std::max(N1, 2lu), N - 1),
                 std::min(std::max(N2, 2lu), N - 1), N - 1>);
@@ -230,7 +236,7 @@ decltype(auto) matmul(const MatrixBase<Derived1, U, N1>& m1, const MatrixBase<De
     return res;
 }
 
-template <typename Derived, isScalar S, isScalar T = ScalarTypeT < S>> requires ScalarTypeTo<S, T>
+template <typename Derived, isScalar S, isScalar T = ScalarTypeT<S>> requires ScalarTypeTo<S, T>
 std::tuple<std::vector<std::size_t>, Mat<T>, Mat<T>> LUP(const MatrixBase<Derived, S, 2>& mat) {
 
     std::size_t n = mat.dims(0);
@@ -281,14 +287,14 @@ std::tuple<std::vector<std::size_t>, Mat<T>, Mat<T>> LUP(const MatrixBase<Derive
     return {P, L, U};
 }
 
-template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
-std::pair<Mat<T>, Mat<T>> Cholesky(const MatrixBase<Derived, U, 2>& mat) {
+template <typename Derived, isScalar U, bool isRowMajor, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
+std::pair<Mat<T>, Mat<T>> Cholesky(const MatrixBase<Derived, U, 2, isRowMajor>& mat) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
     if (n != C) {
         throw std::invalid_argument("Not a square matrix, cannot do Cholesky decomposition");
     }
-    Mat<T> M = mat;
+    Mat<T, isRowMajor> M = mat;
     Mat<T> L = zeros_like(M);
 
     for (std::size_t i = 0; i < n; ++i) {
@@ -316,8 +322,8 @@ std::pair<Mat<T>, Mat<T>> Cholesky(const MatrixBase<Derived, U, 2>& mat) {
     return {L, L_};
 }
 
-template <typename Derived, isScalar U>
-bool isLowerTriangular(const MatrixBase<Derived, U, 2>& mat) {
+template <typename Derived, isScalar U, bool isRowMajor>
+bool isLowerTriangular(const MatrixBase<Derived, U, 2, isRowMajor>& mat) {
     std::size_t R = mat.dims(0);
     std::size_t C = mat.dims(1);
     for (std::size_t i = 0; i < R; ++i) {
@@ -330,8 +336,8 @@ bool isLowerTriangular(const MatrixBase<Derived, U, 2>& mat) {
     return true;
 }
 
-template <typename Derived, isScalar U>
-bool isUpperTriangular(const MatrixBase<Derived, U, 2>& mat) {
+template <typename Derived, isScalar U, bool isRowMajor>
+bool isUpperTriangular(const MatrixBase<Derived, U, 2, isRowMajor>& mat) {
     std::size_t R = mat.dims(0);
     std::size_t C = mat.dims(1);
     for (std::size_t i = 0; i < R; ++i) {
@@ -344,13 +350,13 @@ bool isUpperTriangular(const MatrixBase<Derived, U, 2>& mat) {
     return true;
 }
 
-template <typename Derived, isScalar U>
-bool isTriangular(const MatrixBase<Derived, U, 2>& mat) {
+template <typename Derived, isScalar U, bool isRowMajor>
+bool isTriangular(const MatrixBase<Derived, U, 2, isRowMajor>& mat) {
     return isLowerTriangular(mat) || isUpperTriangular(mat);
 }
 
-template <typename Derived, isScalar T>
-T tr(const MatrixBase<Derived, T, 2>& mat) {
+template <typename Derived, isScalar T, bool isRowMajor>
+T tr(const MatrixBase<Derived, T, 2, isRowMajor>& mat) {
     std::size_t n = std::min(mat.dims(0), mat.dims(1));
     T val {0};
     for (std::size_t i = 0; i < n; ++i) {
@@ -359,8 +365,8 @@ T tr(const MatrixBase<Derived, T, 2>& mat) {
     return val;
 }
 
-template <typename Derived, isScalar T>
-T det(const MatrixBase<Derived, T, 2>& mat) {
+template <typename Derived, isScalar T, bool isRowMajor>
+T det(const MatrixBase<Derived, T, 2, isRowMajor>& mat) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
     if (n != C) {
@@ -380,47 +386,77 @@ T det(const MatrixBase<Derived, T, 2>& mat) {
 
 namespace {
 
-template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
-Mat<T> inv_impl(const MatrixBase<Derived, U, 2>& mat) {
+template <typename Derived, isScalar U, bool isRowMajor, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
+Mat<T, isRowMajor> inv_impl(const MatrixBase<Derived, U, 2, isRowMajor>& mat) {
     std::size_t n = mat.dims(0);
 
-    Mat<T> M = mat;
-    Mat<T> Inv = identity<T>(n);
+    Mat<T, isRowMajor> M = mat;
+    Mat<T, isRowMajor> Inv = identity<T, isRowMajor>(n);
 
-    for (std::size_t i = 0; i < n; ++i) {
-        // pivoting
-        for (std::size_t k = i + 1; k < n; ++k) {
-            if (M[{i, i}] == T{0} && std::fabs(M[{k, i}]) != T{0}) {
-                M.swapRows(i, k);
-                Inv.swapRows(i, k);
-                break;
+    if constexpr (isRowMajor) {
+        for (std::size_t i = 0; i < n; ++i) {
+            // pivoting
+            for (std::size_t k = i + 1; k < n; ++k) {
+                if (M[{i, i}] == T{0} && std::fabs(M[{k, i}]) != T{0}) {
+                    M.swapRows(i, k);
+                    Inv.swapRows(i, k);
+                    break;
+                }
+            }
+            if (M[{i, i}] == T{0}) {
+                throw std::invalid_argument("Singular matrix, cannot invertible");
+            }
+            for (std::size_t j = i + 1; j < n; ++j) {
+                T coeff = M[{j, i}] / M[{i, i}];
+                Inv.row(j) -= coeff * Inv.row(i);
+                M.row(j) -= coeff * M.row(i);
             }
         }
-        if (M[{i, i}] == T{0}) {
-            throw std::invalid_argument("Singular matrix, cannot invertible");
+        for (std::size_t i = n - 1; i < n; --i) {
+            for (std::size_t j = 0; j < i; ++j) {
+                T coeff = M[{j, i}] / M[{i, i}];
+                Inv.row(j) -= coeff * Inv.row(i);
+                M[{j, i}] = T{0};
+            }
+            Inv.row(i) /= M[{i, i}];
+            M[{i, i}] = 1;
         }
-        for (std::size_t j = i + 1; j < n; ++j) {
-            T coeff = M[{j, i}] / M[{i, i}];
-            Inv.row(j) -= coeff * Inv.row(i);
-            M.row(j) -= coeff * M.row(i);
+    } else {
+        for (std::size_t i = 0; i < n; ++i) {
+            // pivoting
+            for (std::size_t k = i + 1; k < n; ++k) {
+                if (M[{i, i}] == T{0} && std::fabs(M[{i, k}]) != T{0}) {
+                    M.swapCols(i, k);
+                    Inv.swapCols(i, k);
+                    break;
+                }
+            }
+            if (M[{i, i}] == T{0}) {
+                throw std::invalid_argument("Singular matrix, cannot invertible");
+            }
+            for (std::size_t j = i + 1; j < n; ++j) {
+                T coeff = M[{i, j}] / M[{i, i}];
+                Inv.col(j) -= coeff * Inv.col(i);
+                M.col(j) -= coeff * M.col(i);
+            }
         }
-    }
-    for (std::size_t i = n - 1; i < n; --i) {
-        for (std::size_t j = 0; j < i; ++j) {
-            T coeff = M[{j, i}] / M[{i, i}];
-            Inv.row(j) -= coeff * Inv.row(i);
-            M[{j, i}] = T{0};
+        for (std::size_t i = n - 1; i < n; --i) {
+            for (std::size_t j = 0; j < i; ++j) {
+                T coeff = M[{i, j}] / M[{i, i}];
+                Inv.col(j) -= coeff * Inv.col(i);
+                M[{i, j}] = T{0};
+            }
+            Inv.col(i) /= M[{i, i}];
+            M[{i, i}] = 1;
         }
-        Inv.row(i) /= M[{i, i}];
-        M[{i, i}] = 1;
     }
     return Inv;
 }
 
 } // anonymous namespace
 
-template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
-Mat<T> inv(const MatrixBase<Derived, U, 2>& mat) {
+template <typename Derived, isScalar U, bool isRowMajor, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
+Mat<T, isRowMajor> inv(const MatrixBase<Derived, U, 2, isRowMajor>& mat) {
     std::size_t n = mat.dims(0);
     std::size_t C = mat.dims(1);
     if (n != C) {
@@ -431,8 +467,8 @@ Mat<T> inv(const MatrixBase<Derived, U, 2>& mat) {
 
 namespace {
 
-template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
-Mat <T> pow_impl(const MatrixBase<Derived, U, 2>& mat, int p) {
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
+Mat<T> pow_impl(const MatrixBase<Derived, U, 2>& mat, int p) {
     assert(p >= 1);
     if (p == 1) {
         return mat;

@@ -18,20 +18,23 @@
 
 namespace frozenca {
 
-template <std::semiregular T, std::size_t N>
+template <std::semiregular T, std::size_t N, bool isRowMajor = true>
 class Matrix;
 
-template <std::semiregular T>
-using Mat = Matrix<T, 2>;
+template <std::semiregular T, bool isRowMajor = true>
+using Mat = Matrix<T, 2, isRowMajor>;
 
 template <std::semiregular T>
 using Vec = Matrix<T, 1>;
 
-template <std::semiregular T, std::size_t N, bool Const = false>
+template <std::semiregular T, std::size_t N, bool Const = false, bool isRowMajor = true>
 class MatrixView;
 
-template <std::semiregular T>
-using MatView = MatrixView<T, 2>;
+template <std::semiregular T, bool isRowMajor = true>
+using MatView = MatrixView<T, 2, false, isRowMajor>;
+
+template <std::semiregular T, bool isRowMajor = true>
+using ConstMatView = MatrixView<T, 2, true, isRowMajor>;
 
 template <std::semiregular T>
 using VecView = MatrixView<T, 1>;
@@ -39,7 +42,7 @@ using VecView = MatrixView<T, 1>;
 template <std::semiregular T>
 using ConstVecView = MatrixView<T, 1, true>;
 
-template <typename Derived, std::semiregular T, std::size_t N>
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor = true>
 class MatrixBase;
 
 template <typename Derived>
@@ -48,14 +51,14 @@ class ObjectBase;
 template <typename T>
 constexpr bool NotMatrix = true;
 
-template <std::semiregular T, std::size_t N>
-constexpr bool NotMatrix<Matrix<T, N>> = false;
+template <std::semiregular T, std::size_t N, bool isRowMajor>
+constexpr bool NotMatrix<Matrix<T, N, isRowMajor>> = false;
 
-template <std::semiregular T, std::size_t N, bool Const>
-constexpr bool NotMatrix<MatrixView<T, N, Const>> = false;
+template <std::semiregular T, std::size_t N, bool Const, bool isRowMajor>
+constexpr bool NotMatrix<MatrixView<T, N, Const, isRowMajor>> = false;
 
-template <typename Derived, std::semiregular T, std::size_t N>
-constexpr bool NotMatrix<MatrixBase<Derived, T, N>> = false;
+template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
+constexpr bool NotMatrix<MatrixBase<Derived, T, N, isRowMajor>> = false;
 
 template <typename Derived>
 constexpr bool NotMatrix<ObjectBase<Derived>> = false;
@@ -434,13 +437,21 @@ std::array<std::size_t, std::max({M, N, 2lu})> matmulDims(const std::array<std::
 template <typename... Args>
 concept IndexType = All(std::is_integral_v<Args>...);
 
-template <std::size_t N>
+template <std::size_t N, bool isRowMajor>
 std::array<std::size_t, N> computeStrides(const std::array<std::size_t, N>& dims) {
     std::array<std::size_t, N> strides;
-    std::size_t str = 1;
-    for (std::size_t i = N - 1; i < N; --i) {
-        strides[i] = str;
-        str *= dims[i];
+    if constexpr (isRowMajor) {
+        std::size_t str = 1;
+        for (std::size_t i = N - 1; i < N; --i) {
+            strides[i] = str;
+            str *= dims[i];
+        }
+    } else {
+        std::size_t str = 1;
+        for (std::size_t i = 0; i < N; ++i) {
+            strides[i] = str;
+            str *= dims[i];
+        }
     }
     return strides;
 }
