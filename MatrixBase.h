@@ -13,6 +13,7 @@ class MatrixView;
 template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
 class MatrixBase : public ObjectBase<MatrixBase<Derived, T, N, isRowMajor>> {
     static_assert(N > 1);
+    static_assert(isRowMajor || N == 2);
 public:
     static constexpr std::size_t ndim = N;
     using extent_type = std::array<std::size_t, N>;
