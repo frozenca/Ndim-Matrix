@@ -88,8 +88,8 @@ public:
     template <IndexType... Dims>
     explicit Matrix(Dims... dims);
 
-    explicit Matrix(typename MatrixInitializer<T, N>::type init);
-    Matrix& operator=(typename MatrixInitializer<T, N>::type init);
+    explicit Matrix(typename MatrixInitializer<T, N>::type init) requires (isRowMajor);
+    Matrix& operator=(typename MatrixInitializer<T, N>::type init) requires (isRowMajor);
 
     template <typename DerivedOther, std::semiregular U, bool isRowMajorOther> requires std::is_convertible_v<U, T>
     Matrix(const MatrixBase<DerivedOther, U, N, isRowMajorOther>& other);
@@ -107,9 +107,9 @@ public:
 
     template <typename Derived, std::semiregular T_, std::size_t N_, bool isRowMajor_>
     friend Matrix<T_, N_, isRowMajor_> transpose(const MatrixBase<Derived, T_, N_, isRowMajor_>& orig,
-                                    const std::array<std::size_t, N_>& perm, bool changeDims);
+                                    const std::array<std::size_t, N_>& perm);
 
-    Matrix& transpose_(bool changeDims = true);
+    Matrix& transpose_();
 
     Matrix operator-() {
         return Base::Base::operator-();
@@ -124,16 +124,13 @@ template <IndexType... Dims>
 Matrix<T, N, isRowMajor>::Matrix(Dims... dims) : Base(dims...), data_(std::make_unique<T[]>(size())) {}
 
 template <std::semiregular T, std::size_t N, bool isRowMajor>
-Matrix<T, N, isRowMajor>::Matrix(typename MatrixInitializer<T, N>::type init) : Base(init),
+Matrix<T, N, isRowMajor>::Matrix(typename MatrixInitializer<T, N>::type init) requires (isRowMajor) : Base(init),
         data_(std::make_unique<T[]>(size())) {
     insertFlat(data_, init);
-    if constexpr (!isRowMajor) {
-        transpose_(false);
-    }
 }
 
 template <std::semiregular T, std::size_t N, bool isRowMajor>
-Matrix<T, N, isRowMajor>& Matrix<T, N, isRowMajor>::operator=(typename MatrixInitializer<T, N>::type init) {
+Matrix<T, N, isRowMajor>& Matrix<T, N, isRowMajor>::operator=(typename MatrixInitializer<T, N>::type init) requires (isRowMajor) {
     Matrix<T, N, isRowMajor> mat(init);
     swap(*this, mat);
     return *this;
@@ -144,12 +141,17 @@ template <typename DerivedOther, std::semiregular U, bool isRowMajorOther> requi
 Matrix<T, N, isRowMajor>::Matrix(const MatrixBase<DerivedOther, U, N, isRowMajorOther>& other) : Base(other.dims()),
                                                                     data_(std::make_unique<T[]>(size())) {
     std::size_t index = 0;
-    for (auto it = std::cbegin(other); it != std::cend(other); ++it) {
-        data_[index] = static_cast<T>(*it);
-        index++;
-    }
-    if constexpr (isRowMajor != isRowMajorOther) {
-        transpose_(false);
+    if constexpr (isRowMajor == isRowMajorOther) {
+        for (auto it = std::cbegin(other); it != std::cend(other); ++it) {
+            data_[index] = static_cast<T>(*it);
+            index++;
+        }
+    } else {
+        MatrixView<T, N, true, isRowMajor> other_view(other.dims(), other.dataView(), other.strides());
+        for (auto it = std::cbegin(other_view); it != std::cend(other_view); ++it) {
+            data_[index] = static_cast<T>(*it);
+            index++;
+        }
     }
 }
 
@@ -177,8 +179,7 @@ Matrix<T, M, isRowMajor> reshape(Matrix<T, N, isRowMajor>&& orig, const std::arr
 }
 
 template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
-Matrix<T, N, isRowMajor> transpose(const MatrixBase<Derived, T, N, isRowMajor>& orig, const std::array<std::size_t, N>& perm,
-                                   bool changeDims = true) {
+Matrix<T, N, isRowMajor> transpose(const MatrixBase<Derived, T, N, isRowMajor>& orig, const std::array<std::size_t, N>& perm) {
     std::array<std::size_t, N> identity_perm;
     std::iota(std::begin(identity_perm), std::end(identity_perm), 0lu);
     if (!std::ranges::is_permutation(identity_perm, perm)) {
@@ -188,11 +189,7 @@ Matrix<T, N, isRowMajor> transpose(const MatrixBase<Derived, T, N, isRowMajor>& 
     std::array<std::size_t, N> trans_dims;
     std::array<std::size_t, N> trans_strides;
     for (std::size_t i = 0; i < N; ++i) {
-        if (changeDims) {
-            trans_dims[i] = orig.dims(perm[i]);
-        } else {
-            trans_dims[i] = orig.dims(i);
-        }
+        trans_dims[i] = orig.dims(perm[i]);
         trans_strides[i] = orig.strides(perm[i]);
     }
     std::array<std::size_t, N> pos_begin = {0};
@@ -202,15 +199,15 @@ Matrix<T, N, isRowMajor> transpose(const MatrixBase<Derived, T, N, isRowMajor>& 
 }
 
 template <typename Derived, std::semiregular T, std::size_t N, bool isRowMajor>
-Matrix<T, N, isRowMajor> transpose(const MatrixBase<Derived, T, N, isRowMajor>& orig, bool changeDims = true) {
+Matrix<T, N, isRowMajor> transpose(const MatrixBase<Derived, T, N, isRowMajor>& orig) {
     std::array<std::size_t, N> reversed_perm;
     std::iota(std::rbegin(reversed_perm), std::rend(reversed_perm), 0lu);
-    return transpose(orig, reversed_perm, changeDims);
+    return transpose(orig, reversed_perm);
 }
 
 template <std::semiregular T, std::size_t N, bool isRowMajor>
-Matrix<T, N, isRowMajor>& Matrix<T, N, isRowMajor>::transpose_(bool changeDims) {
-    auto transposed = transpose(*this, changeDims);
+Matrix<T, N, isRowMajor>& Matrix<T, N, isRowMajor>::transpose_() {
+    auto transposed = transpose(*this);
     std::swap(*this, transposed);
     return *this;
 }
