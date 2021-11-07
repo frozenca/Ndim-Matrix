@@ -29,9 +29,6 @@ requires DotProductableTo<U, V, T>
 void DotTo(MatrixView<T, 1, false>& m,
            const MatrixView<U, 1, true>& m1,
            const MatrixView<V, 2, true, isRowMajor2>& m2) {
-    if (m.dims(0) != m2.dims(1)) {
-        std::cout << m.dims(0) << ' ' << m2.dims(0) << ' ' << m2.dims(1) << '\n';
-    }
     assert(m.dims(0) == m2.dims(1));
     std::size_t c = m.dims(0);
     for (std::size_t j = 0; j < c; ++j) {
