@@ -15,6 +15,7 @@ static constexpr float tolerance_soft = 1e-6;
 static constexpr float tolerance_hard = 1e-10;
 static constexpr std::size_t max_iter = 100;
 static constexpr std::size_t local_iter = 15;
+static constexpr std::size_t transB_threshold = 1u << 7;
 
 template <std::semiregular U, std::semiregular V, std::semiregular T>
 requires DotProductableTo<U, V, T>
@@ -154,7 +155,16 @@ template <typename Derived1, typename Derived2,
 decltype(auto) dot(const MatrixBase<Derived1, U, M, true>& m1, const MatrixBase<Derived2, V, N, isRowMajor2>& m2) {
     auto dims = dotDims(m1.dims(), m2.dims());
     Matrix<T, (M + N - 2)> res = zeros<T, (M + N - 2)>(dims);
-    DotTo(res, m1, m2);
+    if constexpr (isRowMajor2) {
+        if (m2.dims(1) > transB_threshold && m2.dims(0) > transB_threshold) {
+            Matrix<V, N, false> m2_c(m2);
+            DotTo(res, m1, m2_c);
+        } else {
+            DotTo(res, m1, m2);
+        }
+    } else {
+        DotTo(res, m1, m2);
+    }
     return res;
 }
 
@@ -510,7 +520,7 @@ T norm(const MatrixBase<Derived, U, 1>& vec, std::size_t p = 2) {
     return std::pow(pow_sum, 1.0f / static_cast<float>(p));
 }
 
-template <typename Derived, isScalar U, isReal T = RealTypeT < U>> requires RealTypeTo<U, T>
+template <typename Derived, isScalar U, isReal T = RealTypeT<U>> requires RealTypeTo<U, T>
 T norm(const MatrixBase<Derived, U, 2>& mat, std::size_t p = 2, std::size_t q = 2) {
     if (p == 2 && q == 2) { // Frobenius norm
         T pow_sum = std::abs(std::accumulate(std::begin(mat), std::end(mat),
@@ -528,11 +538,11 @@ T norm(const MatrixBase<Derived, U, 2>& mat, std::size_t p = 2, std::size_t q = 
 
 namespace {
 
-template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
-Mat<T> getQ(const MatrixBase<Derived, U, 2>& V) {
+template <typename Derived, isScalar U, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
+Mat<T, false> getQ(const MatrixBase<Derived, U, 2, false>& V) {
     std::size_t R = V.dims(0);
     std::size_t C = V.dims(1);
-    Mat<T> Q = zeros_like(V);
+    Mat<T, false> Q = zeros_like(V);
     auto curr_col = Q.col(0);
     curr_col = V.col(0);
     if (norm(curr_col, 1) == T{0}) {
@@ -557,11 +567,18 @@ Mat<T> getQ(const MatrixBase<Derived, U, 2>& V) {
 
 } // anonymous namespace
 
-template <typename Derived, isScalar U, isScalar T = ScalarTypeT < U>> requires ScalarTypeTo<U, T>
-std::pair<Mat<T>, Mat<T>> QR(const MatrixBase<Derived, U, 2>& mat) {
-    auto Q = getQ(mat);
-    auto R = dot(transpose(Q), mat);
-    return {Q, R};
+template <typename Derived, isScalar U, bool isRowMajor, isScalar T = ScalarTypeT<U>> requires ScalarTypeTo<U, T>
+std::pair<Mat<T>, Mat<T>> QR(const MatrixBase<Derived, U, 2, isRowMajor>& mat) {
+    if constexpr (isRowMajor) {
+        Mat<U, false> mat_c(mat);
+        Mat<T> Q = getQ(mat_c);
+        Mat<T> R = dot(transpose(Q), mat_c);
+        return {Q, R};
+    } else {
+        Mat<T, false> Q = getQ(mat);
+        Mat<T, false> R = dot(transpose_change_major(Q), mat);
+        return {Q, R};
+    }
 }
 
 template <typename Derived, isScalar S, isScalar T = ScalarTypeT < S>> requires ScalarTypeTo<S, T>
@@ -569,9 +586,9 @@ std::tuple<Mat<T>, Mat<T>, Mat<T>> SVD(const MatrixBase<Derived, S, 2>& mat, std
     std::size_t iter = 0;
     std::size_t m = mat.dims(0);
     std::size_t n = mat.dims(1);
-    Mat<T> U = mat;
+    Mat<T, false> U = mat;
     Mat<T> Sigma = zeros<T, 2>({n, n});
-    Mat<T> V = identity<T>(n);
+    Mat<T, false> V = identity<T>(n);
     auto dot_func = [&](auto& ri, auto& rj){
         if constexpr (isComplex<S>) {
             return dot(conj(ri), rj);
@@ -695,7 +712,7 @@ Mat<T> pinv(const MatrixBase<Derived, U, 2>& mat) {
             return v;
         }
     };
-    return dot(dot(V_, pinv_diagonal(S_)), transpose(conjif(U_)));
+    return dot(dot(V_, pinv_diagonal(S_)), transpose_change_major(conjif(U_)));
 }
 
 template <isScalar T>
@@ -1106,7 +1123,7 @@ template <typename Derived, typename Derived2, isScalar T>
 Mat<T> computeEigenvectors(const MatrixBase<Derived, T, 2>& M,
                            const MatrixBase<Derived2, T, 2>& Q) {
     std::size_t n = M.dims(0);
-    Mat<T> X = identity<T>(n);
+    Mat<T, false> X = identity<T, false>(n);
 
     for (std::size_t k = n - 1; k < n; --k) {
         for (std::size_t i = k - 1; i < n; --i) {

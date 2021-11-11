@@ -30,17 +30,17 @@ Matrix<T, 2, isRowMajor> eye(std::size_t n, std::size_t m) {
 
 template <OneExists T, bool isRowMajor = true>
 Matrix<T, 2, isRowMajor> eye(std::size_t n) {
-    return eye<T>(n, n);
+    return eye<T, isRowMajor>(n, n);
 }
 
 template <OneExists T, bool isRowMajor = true>
 Matrix<T, 2, isRowMajor> identity(std::size_t n) {
-    return eye<T>(n, n);
+    return eye<T, isRowMajor>(n, n);
 }
 
 template <OneExists T, std::size_t N, bool isRowMajor>
 Matrix<T, N, isRowMajor> ones(const std::array<std::size_t, N>& arr) {
-    Matrix<T, N> mat (arr);
+    Matrix<T, N, isRowMajor> mat (arr);
     std::fill(std::begin(mat), std::end(mat), T{1});
     return mat;
 }
@@ -52,7 +52,7 @@ Matrix<T, N, isRowMajor2> ones_like(const MatrixBase<Derived, T, N, isRowMajor1>
     return mat;
 }
 
-template <std::semiregular T, std::size_t N, bool isRowMajor = true>
+template <std::semiregular T, std::size_t N = 2, bool isRowMajor = true>
 Matrix<T, N, isRowMajor> zeros(const std::array<std::size_t, N>& arr) {
     Matrix<T, N, isRowMajor> mat (arr);
     std::fill(std::begin(mat), std::end(mat), T{0});
@@ -68,7 +68,7 @@ Matrix<T, N, isRowMajor2> zeros_like(const MatrixBase<Derived, T, N, isRowMajor1
 
 template <std::semiregular T, std::size_t N, bool isRowMajor = true>
 Matrix<T, N, isRowMajor> full(const std::array<std::size_t, N>& arr, const T& fill_value) {
-    Matrix<T, N> mat (arr);
+    Matrix<T, N, isRowMajor> mat (arr);
     std::fill(std::begin(mat), std::end(mat), fill_value);
     return mat;
 }
